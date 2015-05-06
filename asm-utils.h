@@ -36,6 +36,6 @@ name:
 	.type name,@function; \
 	.globl name; \
 name: \
-0:	lis     %r2,.TOC.@ha; \
-	addi    %r2,%r2,.TOC.@l; \
+0:	addis r2,r12,(.TOC.-0b)@ha; \
+	addi r2,r2,(.TOC.-0b)@l;    \
 	.localentry name,.-name
