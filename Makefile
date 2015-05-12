@@ -7,6 +7,13 @@ NAME =  ppc64le_hello
 
 all: $(NAME)
 
+test: $(NAME) skiboot/skiboot.lid
+	./run_ppc64le_hello.sh
+
+skiboot/skiboot.lid:
+	git submodule update --init skiboot
+	SKIBOOT_VERSION=foo make -C skiboot
+
 -include $(OBJ:.o=.d)
 
 %.o: %.S
@@ -29,4 +36,6 @@ $(NAME): $(OBJ)
 
 clean:
 	$(RM) $(NAME) *.o *.o.s *.d
-.PHONY: clean
+cleaner: clean
+	git submodule deinit -f skiboot
+.PHONY: clean cleaner

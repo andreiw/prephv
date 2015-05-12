@@ -31,7 +31,9 @@ export SKIBOOT_ZIMAGE=`pwd`/ppc64le_hello
 OLD_ULIMIT_C=`ulimit -c`
 ulimit -c 0
 
-$MAMBO_PATH/$MAMBO_BINARY -n -f skiboot.tcl
+pushd ./skiboot/external/mambo
+$MAMBO_PATH/$MAMBO_BINARY -n -f ./skiboot.tcl
+popd
 ulimit -c $OLD_ULIMIT_C
 echo
 exit 0;
