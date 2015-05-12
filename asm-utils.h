@@ -1,3 +1,24 @@
+/*
+ * Nifty stuff for writing asm bits.
+ * Most of this code is derived from the Linux Kernel.
+ *
+ * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *           
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *                
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
 #ifndef ASM_UTILS_H
 #define ASM_UTILS_H
 
@@ -69,15 +90,5 @@
 	.type name,@function; \
 	.globl name; \
 name:
-
-#define _GLOBAL_TOC(name) \
-	.section ".text"; \
-	.align 2 ; \
-	.type name,@function; \
-	.globl name; \
-name: \
-0:	addis r2,r12,(.TOC.-0b)@ha; \
-	addi r2,r2,(.TOC.-0b)@l;    \
-	.localentry name,.-name
 
 #endif /* ASM_UTILS_H */
