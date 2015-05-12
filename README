@@ -1,0 +1,60 @@
+ppc64le_hello - ``Hello World'' for a Little-Endian OpenPower world
+===================================================================
+
+This is an example of running a 64-bit little-endian payload using
+skiboot (https://github.com/open-power/skiboot) or another OPAL
+firmware.
+
+It shows the bare minimum needed to start writing
+a little-endian kernel for the OpenPower ecosystem. Whereas
+skiboot/test/hello_world is big-endian, this shows how
+to make OPAL calls from LE.
+
+What you get:
+- 64-bit real-mode HV LE operation
+- logging via sim inteface (mambo_write)
+- logging via OPAL firmware (opal_write)
+- calling C code, linkage setup/TOC
+- calling BE code from LE
+
+Building
+========
+
+You will need a LE 64-bit toolchain to build (i.e. powerpc64le-linux-gnu-gcc).
+For building skiboot (for testing) you will also need the BE 64-bit
+toolchain (i.e. powerpc64-linux-gnu-gcc).
+
+Skiboot is pulled-in as a submodule. 
+
+You will need the POWER8 Functional Simulator set up. Good directions: https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/
+
+$ make
+
+Running
+=======
+
+$ make test
+
+You're looking for output like -
+...
+14850345: (14850345): [14846541,3] ELOG: Error getting buffer to log error
+19043637: (19043637): [19037248,5] INIT: Starting kernel at 0x20010000, fdt at 0x30203458 (size 0x114c)
+19043936: (19043934): Hello Mambo!
+19044699: (19044697): Hello OPAL!
+INFO: 19044889: (19044888): ** Execution stopped: ATTN signal to service processor,  **
+...
+
+You should be able to run ppc64le_hello on a real Power8 machine via skiboot, but you will
+need to comment out the call to mambo_write, as that is a simulator-only facility.
+
+Resources
+=========
+
+Useful stuff:
+- PowerISA_V2.07_PUBLIC.pdf            - Book 3S
+- ABI53BitOpenPOWER_21July2014_pub.pdf - ELFv2 ABI used for PPC64LE
+
+Contact Info
+============
+
+Andrei Warkentin (andrey.warkentin@gmail.com).
