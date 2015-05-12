@@ -12,7 +12,7 @@ all: hello_kernel
 	$(CC) $(ARCH_FLAGS) -S -I./ $< -o $@.s
 	$(CC) $(ARCH_FLAGS) -c -I./ -o $@ $<
 
-hello_kernel: hello_kernel.o main.o
+hello_kernel: entry.o main.o
 	$(CC) $(ARCH_FLAGS)  -Wl,--build-id=none -Wl,--EL -T hello_kernel.ld -ffreestanding -nostdlib -Ttext=0x20010000 -lgcc -o $@ $^
 
 clean:
