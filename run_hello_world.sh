@@ -25,7 +25,7 @@ if [ ! `command -v expect` ]; then
 fi
 
 
-export SKIBOOT_ZIMAGE=`pwd`/hello_kernel
+export SKIBOOT_ZIMAGE=`pwd`/ppc64le_hello
 
 # Currently getting some core dumps from mambo, so disable them!
 OLD_ULIMIT_C=`ulimit -c`
