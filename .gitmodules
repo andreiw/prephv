@@ -1,0 +1,3 @@
+[submodule "skiboot"]
+	path = skiboot
+	url = https://github.com/open-power/skiboot
