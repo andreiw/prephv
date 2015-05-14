@@ -8,13 +8,14 @@ firmware.
 It shows the bare minimum needed to start writing
 a little-endian kernel for the OpenPower ecosystem. Whereas
 skiboot/test/hello_world is big-endian, this shows how
-to make OPAL calls from LE.
+to make OPAL calls from LE as well as other minutiae like
+setting up a basic C environment.
 
 What you get:
 - 64-bit real-mode HV LE operation
 - logging via sim inteface (mambo_write)
 - logging via OPAL firmware (opal_write)
-- calling C code, linkage setup/TOC
+- calling C code, stack/BSS/linkage setup/TOC
 - calling BE code from LE
 
 Building
@@ -41,6 +42,13 @@ You're looking for output like -
 19043637: (19043637): [19037248,5] INIT: Starting kernel at 0x20010000, fdt at 0x30203458 (size 0x114c)
 19043936: (19043934): Hello Mambo!
 19044699: (19044697): Hello OPAL!
+19045321: (19045319): _start = 0x20010000
+19057843: (19057537): _bss   = 0x20013000
+19070365: (19069755): _stack = 0x20013000
+19082887: (19081973): _end   = 0x20014000
+19095418: (19094200): KPCR   = 0x20010134
+19107950: (19106428): OPAL   = 0x30000000
+19120471: (19118645): FDT    = 0x20013000
 INFO: 19044889: (19044888): ** Execution stopped: ATTN signal to service processor,  **
 ...
 

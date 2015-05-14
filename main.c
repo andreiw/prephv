@@ -22,17 +22,22 @@
 
 #include <types.h>
 #include <endian.h>
+#include <console.h>
+#include <kpcr.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
-#define OPAL_TERMINAL_0 0
+
+extern void * _start;
+extern void * _bss_start;
+extern void * _stack_start;
+extern void * _end;
 
 
 void
-c_main(u64 dt_base)
+c_main(void *fdt)
 {
 	u64 len = cpu_to_be64(sizeof(HELLO_OPAL));
-
 	/*
 	 * Write using sim interface (simpler).
 	 */
@@ -42,4 +47,15 @@ c_main(u64 dt_base)
 	 * Write using firmware interface.
 	 */
 	opal_write(OPAL_TERMINAL_0, &len, HELLO_OPAL);
+
+	/*
+	 * Some info.
+	 */
+	printk("_start = %p\n", &_start);
+	printk("_bss   = %p\n", &_bss_start);
+	printk("_stack = %p\n", &_stack_start);
+	printk("_end   = %p\n", &_end);
+	printk("KPCR   = %p\n", kpcr_get());
+	printk("OPAL   = %p\n", kpcr_get()->opal_base);
+	printk("FDT    = %p\n", fdt);
 }

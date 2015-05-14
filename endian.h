@@ -22,12 +22,16 @@
 #ifndef ENDIAN_H
 #define ENDIAN_H
 
+#include <types.h>
+
+
 static inline u16
 swab16(u16 x)
 {
 	return  ((x & (u16)0x00ffU) << 8) |
 		((x & (u16)0xff00U) >> 8);
 }
+
 
 static inline u32
 swab32(u32 x)
@@ -37,6 +41,7 @@ swab32(u32 x)
 		((x & (u32)0x00ff0000UL) >>  8) |
 		((x & (u32)0xff000000UL) >> 24);
 }
+
 
 static inline u64
 swab64(u64 x)

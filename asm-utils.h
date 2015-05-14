@@ -77,6 +77,14 @@
 #define LOAD_ADDR(r, n)                         \
 	ld      r,n@got(r2)
 
+/*
+ * Power Architecture 64-Bit ELF V2 ABI: The minimum stack frame size shall be
+ * 32 bytes. A minimum stack frame consists of the first 4 double-
+ * words (back-chain doubleword, CR save word and reserved word,
+ * LR save doubleword, and TOC pointer doubleword), with padding to meet
+ * the 16-byte alignment requirement.
+ */
+#define STACKFRAMEMIN  32
 #define STACKFRAMESIZE 256
 #define __STK_REG(i)   (112 + ((i)-14)*8)
 #define STK_REG(i)     __STK_REG(__REG_##i)

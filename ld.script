@@ -19,10 +19,20 @@ SECTIONS
 		*(.toc)
 		. = ALIGN(4096);
 		_edata  =  .;
-		__bss_start = .;
+		_bss_start = .;
 		*(.sbss)
 		*(.bss)
 		*(COMMON)
+		_bss_end = .;
+
+		/*
+		 * Stack should be quadword (16) aligned, but
+		 * we do better.
+		 */
+		. = ALIGN(4096);
+		_stack_start = .;
+		. += 4096;
+		_stack_top = .;
 		_end = . ;
 	}
 }

@@ -1,8 +1,9 @@
 CROSS ?= powerpc64le-linux-gnu
 CC = $(CROSS)-gcc
 
-ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-align -mno-multiple -mno-pointers-to-nested-functions -mcmodel=large
-OBJ =  entry.o main.o
+ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-align -mno-multiple -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector
+
+OBJ =  entry.o main.o printf.o
 NAME =  ppc64le_hello
 
 all: $(NAME)
