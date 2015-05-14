@@ -1,9 +1,11 @@
 CROSS ?= powerpc64le-linux-gnu
 CC = $(CROSS)-gcc
 
-ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-align -mno-multiple -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector
+ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-align -mno-multiple \
+             -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector \
+             -I./
 
-OBJ =  entry.o main.o printf.o
+OBJ =  entry.o main.o printf.o string.o fdt.o fdt_strerror.o fdt_ro.o
 NAME =  ppc64le_hello
 
 all: $(NAME)
@@ -18,15 +20,15 @@ skiboot/skiboot.lid:
 -include $(OBJ:.o=.d)
 
 %.o: %.S
-	$(CC) $(ARCH_FLAGS) -D__ASSEMBLY__ -c -MMD -I./ -o $@ $<
+	$(CC) $(ARCH_FLAGS) -D__ASSEMBLY__ -c -MMD -o $@ $<
 	@cp -f $*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
 
 %.o: %.c
-	$(CC) $(ARCH_FLAGS) -c -MMD -I./ -o $@ $<
-	$(CC) $(ARCH_FLAGS) -S -I./ $< -o $@.s
+	$(CC) $(ARCH_FLAGS) -c -MMD -o $@ $<
+	$(CC) $(ARCH_FLAGS) -S $< -o $@.s
 	@cp -f $*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d

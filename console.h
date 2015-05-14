@@ -25,8 +25,8 @@
 
 #define OPAL_TERMINAL_0 0
 
-void opal_write(int terminal, u64 *len, char *buf);
-void mambo_write(char *buf, int len);
+void opal_write(int terminal, length_t *len, char *buf);
+void mambo_write(char *buf, length_t len);
 void printk(char *fmt, ...);
 void vprintk(char *fmt, va_list adx);
 

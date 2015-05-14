@@ -17,6 +17,7 @@ What you get:
 - logging via OPAL firmware (opal_write)
 - calling C code, stack/BSS/linkage setup/TOC
 - calling BE code from LE
+- FDT parsing
 
 Building
 ========
@@ -49,11 +50,12 @@ You're looking for output like -
 19095418: (19094200): KPCR   = 0x20010134
 19107950: (19106428): OPAL   = 0x30000000
 19120471: (19118645): FDT    = 0x20013000
-INFO: 19044889: (19044888): ** Execution stopped: ATTN signal to service processor,  **
 ...
 
 You should be able to run ppc64le_hello on a real Power8 machine via skiboot, but you will
 need to comment out the call to mambo_write, as that is a simulator-only facility.
+
+Wish I had Power8 kit to play with ;-(.
 
 Resources
 =========

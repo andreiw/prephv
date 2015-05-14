@@ -21,8 +21,14 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long uint64_t;
+typedef uint64_t uintptr_t;
+
+typedef uint64_t vaddr_t;
+typedef uint64_t offset_t;
+typedef uint64_t length_t;
 
 #endif /* TYPES_H */

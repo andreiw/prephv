@@ -24,6 +24,8 @@
 #include <endian.h>
 #include <console.h>
 #include <kpcr.h>
+#include <libfdt.h>
+#include <libfdt_internal.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -34,10 +36,98 @@ extern void * _stack_start;
 extern void * _end;
 
 
+static void
+dump_props(void *fdt, int node, int depth)
+{
+	const char *n;
+	int i;
+	uint32_t tag;
+	int nextoffset;
+	const struct fdt_property *prop;
+	int offset = _fdt_check_node_offset(fdt, node);;
+
+	if (offset < 0) {
+		return;
+	}
+
+	do {
+		tag = fdt_next_tag(fdt, offset, &nextoffset);
+		if (tag == FDT_END) {
+			return;
+		}
+
+		if (tag == FDT_PROP) {
+			prop = _fdt_offset_ptr(fdt, offset);
+			n = fdt_string(fdt, fdt32_to_cpu(prop->nameoff));
+
+			for  (i = 0; i < depth; i++) {
+				printk(" ");
+			}
+			printk("%s: 0x%x@0x%x\n", n,
+			       fdt32_to_cpu(prop->len),
+			       prop->data);
+		}
+
+		offset = nextoffset;
+	} while ((tag != FDT_BEGIN_NODE) && (tag != FDT_END_NODE));
+}
+
+
+static void
+dump_nodes(void *fdt)
+{
+	int i;
+	int numrsv;
+	int offset;
+	int depth;
+	const char *n;
+
+	if (fdt_check_header(fdt) != 0) {
+		printk("Bad FDT\n");
+		return;
+	}
+
+	numrsv = fdt_num_mem_rsv(fdt);
+	printk("FDT version: %d\n", fdt_version(fdt));
+
+	for (i = 0; i < numrsv; i++) {
+		uint64_t addr, size;
+		if (fdt_get_mem_rsv(fdt, i, &addr, &size) != 0) {
+			break;
+		}
+
+		printk("/memreserve/ 0x%x 0x%x;\n",
+		       addr, size);
+	}
+
+	offset = 0;
+	depth = 0;
+	do {
+		offset = fdt_next_node(fdt, offset, &depth);
+		if (offset < 0) {
+			break;
+		}
+
+		n = fdt_get_name(fdt, offset, NULL);
+		for  (i = 0; i < depth * 4; i++) {
+			printk(" ");
+		}
+
+		if (n != NULL) {
+			printk("<%s>\n", n);
+		}
+
+		dump_props(fdt, offset, depth * 4 + 2);
+	} while(1);
+
+	printk("Done dumping FDT\n");
+}
+
+
 void
 c_main(void *fdt)
 {
-	u64 len = cpu_to_be64(sizeof(HELLO_OPAL));
+	uint64_t len = cpu_to_be64(sizeof(HELLO_OPAL));
 	/*
 	 * Write using sim interface (simpler).
 	 */
@@ -58,4 +148,6 @@ c_main(void *fdt)
 	printk("KPCR   = %p\n", kpcr_get());
 	printk("OPAL   = %p\n", kpcr_get()->opal_base);
 	printk("FDT    = %p\n", fdt);
+
+	dump_nodes(fdt);
 }

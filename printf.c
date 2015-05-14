@@ -19,7 +19,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include <stdarg.h>
-#include <stddef.h>
+#include <defs.h>
 #include <endian.h>
 #include <console.h>
 
@@ -27,7 +27,7 @@
 void
 putchar(char c)
 {
-	u64 len = cpu_to_be64(1);
+	uint64_t len = cpu_to_be64(1);
 	opal_write(OPAL_TERMINAL_0, &len, &c);
 }
 
@@ -55,7 +55,7 @@ printks(char *s)
  * Print an unsigned integer in base b, avoiding recursion.
  */
 static void
-printknu(u64 n, u64 b)
+printknu(uint64_t n, uint64_t b)
 {
    char prbuf[24];
    register char *cp;
@@ -75,7 +75,7 @@ printknu(u64 n, u64 b)
  * Print an signed integer in base b, avoiding recursion.
  */
 static void
-printkns(u64 n, u64 b)
+printkns(uint64_t n, uint64_t b)
 {
    char prbuf[24];
    register char *cp;
@@ -115,10 +115,10 @@ vprintk(char *fmt, va_list adx)
       c = *fmt++;
       if (c == 'u' || c == 'o' ||
           c == 'x' || c == 'X') {
-         printknu((u64) va_arg(adx, u64),
+         printknu((uint64_t) va_arg(adx, uint64_t),
                   c == 'o' ? 8 : (c == 'u' ? 10 : 16));
       } else if (c == 'i' || c == 'd')  {
-         printkns((u64) va_arg(adx, u64), 10);
+         printkns((uint64_t) va_arg(adx, uint64_t), 10);
       } else if (c == 'c') {
          putchar(va_arg(adx, int));
       } else if (c == 's') {
@@ -129,7 +129,7 @@ vprintk(char *fmt, va_list adx)
          if (s) {
             putchar('0');
             putchar('x');
-            printknu((u64) s, 16);
+            printknu((uint64_t) s, 16);
          } else {
             printks(NULL);
          }

@@ -1,5 +1,5 @@
 /*
- * KPCR and accessors.
+ * String ops.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,26 +18,25 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef KPCR_H
-#define KPCR_H
+#ifndef STRING_H
+#define STRING_H
 
 #include <types.h>
-#include <defs.h>
 
-/*
- * Must match kpcr in entry.S.
- */
-typedef struct {
-	uint64_t toc;
-	uint64_t opal_base;
-	uint64_t opal_entry;
-} kpcr_t;
+char *strstr(const char *s1, const char *s2);
+char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, length_t n);
+char *strcat(char *dest, const char *src);
+int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, length_t n);
+length_t strlen(const char *s);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
+void *memchr(const void *s, int c, length_t n);
+void *memset(void *s, int c, length_t n);
+void bcopy(const void *src, void *dest, length_t n);
+void *memcpy(void *dest, const void *src, length_t n);
+void *memmove(void *dest, const void *src, length_t n);
+int memcmp(const void *s1, const void *s2, length_t n);
 
-
-static inline kpcr_t *
-kpcr_get(void)
-{
-	register kpcr_t *kpcr asm("r13");
-	return kpcr;
-}
-#endif /* KPCR_H */
+#endif /* STRING_H */
