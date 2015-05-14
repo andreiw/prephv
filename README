@@ -52,8 +52,9 @@ You're looking for output like -
 19120471: (19118645): FDT    = 0x20013000
 ...
 
-You should be able to run ppc64le_hello on a real Power8 machine via skiboot, but you will
-need to comment out the call to mambo_write, as that is a simulator-only facility.
+You should be able to run ppc64le_hello on a real Power8 machine via skiboot,
+but you will need to comment out the call to mambo_write, as that is a
+simulator-only facility.
 
 Wish I had Power8 kit to play with ;-(.
 
