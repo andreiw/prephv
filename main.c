@@ -73,6 +73,32 @@ dump_props(void *fdt, int node, int depth)
 }
 
 
+
+static void
+dump_cpu(void *fdt)
+{
+	int cpu0_node;
+	const uint32_t *be32_data;
+
+	printk("CPU info:\n");
+	cpu0_node = fdt_path_offset(fdt, "/cpus/cpu@0");
+	if (cpu0_node < 0) {
+		printk("CPU0 not found?\n");
+		return;
+	}
+
+	be32_data = fdt_getprop(fdt, cpu0_node, "slb-size", NULL);
+	if (be32_data != NULL) {
+		printk("SLB size = 0x%x\n", be32_to_cpu(*be32_data));
+	}
+
+	be32_data = fdt_getprop(fdt, cpu0_node, "timebase-frequency", NULL);
+	if (be32_data != NULL) {
+		printk("TB freq = 0x%x\n", be32_to_cpu(*be32_data));
+	}
+}
+
+
 static void
 dump_nodes(void *fdt)
 {
@@ -121,6 +147,7 @@ dump_nodes(void *fdt)
 	} while(1);
 
 	printk("Done dumping FDT\n");
+	dump_cpu(fdt);
 }
 
 
