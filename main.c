@@ -24,6 +24,7 @@
 #include <endian.h>
 #include <console.h>
 #include <kpcr.h>
+#include <opal.h>
 #include <libfdt.h>
 #include <libfdt_internal.h>
 
@@ -80,7 +81,6 @@ dump_cpu(void *fdt)
 	int cpu0_node;
 	const uint32_t *be32_data;
 
-	printk("CPU info:\n");
 	cpu0_node = fdt_path_offset(fdt, "/cpus/cpu@0");
 	if (cpu0_node < 0) {
 		printk("CPU0 not found?\n");
@@ -145,9 +145,35 @@ dump_nodes(void *fdt)
 
 		dump_props(fdt, offset, depth * 4 + 2);
 	} while(1);
+}
 
-	printk("Done dumping FDT\n");
-	dump_cpu(fdt);
+
+void
+menu(void *fdt)
+{
+	int c = 0;
+
+	printk("\nPick your poison:\n");
+	do {
+		if (c != NO_CHAR) {
+			printk("Choices: \n"
+			       "   (c) dump CPU\n"
+			       "   (f) dump FDT\n"
+			       "   (q) poweroff\n");
+		}
+
+		c = getchar();
+		switch (c) {
+		case 'c':
+			dump_cpu(fdt);
+			break;
+		case 'f':
+			dump_nodes(fdt);
+			break;
+		case 'q':
+			return;
+		}
+	} while(1);
 }
 
 
@@ -176,5 +202,5 @@ c_main(void *fdt)
 	printk("OPAL   = %p\n", kpcr_get()->opal_base);
 	printk("FDT    = %p\n", fdt);
 
-	dump_nodes(fdt);
+	menu(fdt);
 }

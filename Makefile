@@ -3,9 +3,9 @@ CC = $(CROSS)-gcc
 
 ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-align -mno-multiple \
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector \
-             -I./
+             -I./ -Wall -Werror
 
-OBJ =  entry.o main.o printf.o string.o fdt.o fdt_strerror.o fdt_ro.o
+OBJ =  entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o
 NAME =  ppc64le_hello
 
 all: $(NAME)

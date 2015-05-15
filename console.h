@@ -23,11 +23,11 @@
 
 #include <stdarg.h>
 
-#define OPAL_TERMINAL_0 0
+#define NO_CHAR -1
 
-void opal_write(int terminal, length_t *len, char *buf);
 void mambo_write(char *buf, length_t len);
 void printk(char *fmt, ...);
 void vprintk(char *fmt, va_list adx);
+int getchar(void);
 
 #endif /* CONSOLE_H */

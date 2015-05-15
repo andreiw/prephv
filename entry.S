@@ -20,6 +20,7 @@
 
 #include <asm-utils.h>
 #include <ppc-regs.h>
+#include <opal.h>
 
 #define KPCR(name) (kpcr_ ## name - kpcr)(r13)
 
@@ -138,8 +139,8 @@ _GLOBAL(opal_return)
 	mtlr	r12
 	blr
 
-#define OPAL_CONSOLE_WRITE 1
 OPAL_CALL(opal_write, OPAL_CONSOLE_WRITE)
+OPAL_CALL(opal_read, OPAL_CONSOLE_READ)
 
 /*
  * Toy per-cpu structure (for only 1 CPU).

@@ -22,13 +22,30 @@
 #include <defs.h>
 #include <endian.h>
 #include <console.h>
+#include <opal.h>
 
 
-void
+static void
 putchar(char c)
 {
 	uint64_t len = cpu_to_be64(1);
 	opal_write(OPAL_TERMINAL_0, &len, &c);
+}
+
+
+int
+getchar(void)
+{
+	char c;
+	opal_return_t ret;
+	uint64_t len = cpu_to_be64(1);
+
+	ret = opal_read(OPAL_TERMINAL_0, &len, &c);
+	if (ret != OPAL_SUCCESS || len == 0) {
+		return NO_CHAR;
+	}
+
+	return c;
 }
 
 
