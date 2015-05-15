@@ -1,5 +1,5 @@
 /*
- * KPCR and accessors.
+ * Various PPC accessors.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,27 +18,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef KPCR_H
-#define KPCR_H
+#ifndef PPC_H
+#define PPC_H
 
-#include <types.h>
-#include <defs.h>
-
-/*
- * Must match kpcr in entry.S.
- */
-typedef struct {
-	uint64_t toc;
-	uint64_t opal_base;
-	uint64_t opal_entry;
-	uint64_t slb_size;
-} kpcr_t;
-
-
-static inline kpcr_t *
-kpcr_get(void)
+static inline void
+isync(void)
 {
-	register kpcr_t *kpcr asm("r13");
-	return kpcr;
+	asm volatile ("isync" : : : "memory");
 }
-#endif /* KPCR_H */
+
+#endif /* PPC_H */

@@ -17,7 +17,17 @@ What you get:
 - logging via OPAL firmware (opal_write)
 - calling C code, stack/BSS/linkage setup/TOC
 - calling BE code from LE
-- FDT parsing
+- FDT parsing, dumping FDT
+
+There's some ongoing work on setting up the MMU in 1:1 mode. Come back soon.
+Today there's just the code to initialize the SLB with an identity EA->VA
+mapping for the first 1TB. No HTAB code yet (damn paternity leave ending!),
+but at some point you'll be able to interactively turn it on and off
+and see a difference :-D. This will also need exception handling working.
+Heh.
+
+Hopefully the code is clear enough and not too messy. I'm not trying hard
+enough ;-(.
 
 Building
 ========
@@ -37,20 +47,33 @@ Running
 
 $ make test
 
+This will run the simulator and pop-up an xterm for OPAL console 0. If you
+don't like xterm, feel free to change it in ppc64le_hello.tcl.
+
 You're looking for output like -
 ...
 14850345: (14850345): [14846541,3] ELOG: Error getting buffer to log error
 19043637: (19043637): [19037248,5] INIT: Starting kernel at 0x20010000, fdt at 0x30203458 (size 0x114c)
-19043936: (19043934): Hello Mambo!
-19044699: (19044697): Hello OPAL!
+19043950: (19043948): Hello Mambo!
+19044713: (19044711): Hello OPAL!
 19045321: (19045319): _start = 0x20010000
-19057843: (19057537): _bss   = 0x20013000
-19070365: (19069755): _stack = 0x20013000
-19082887: (19081973): _end   = 0x20014000
-19095418: (19094200): KPCR   = 0x20010134
+19057843: (19057537): _bss   = 0x20016000
+19070365: (19069755): _stack = 0x20016000
+19082887: (19081973): _end   = 0x20017000
+19095418: (19094200): KPCR   = 0x2001016C
 19107950: (19106428): OPAL   = 0x30000000
-19120471: (19118645): FDT    = 0x20013000
+19120471: (19118645): FDT    = 0x30203458
+19189263: (19187133): SLB size = 0x20
+19231806: (19229600): TB freq = 0x1E848000
+
+19245612: (19243100): Pick your poison:
+19256516: (19254004): Choices: 
+19262355: (19259843):    (f) dump FDT
+19271680: (19269168):    (s) dump SLB
+19281005: (19278493):    (q) poweroff
 ...
+
+You can interact with this, (q) will shut down the sim.
 
 You should be able to run ppc64le_hello on a real Power8 machine via skiboot,
 but you will need to comment out the call to mambo_write, as that is a

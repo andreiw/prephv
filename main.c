@@ -27,6 +27,7 @@
 #include <opal.h>
 #include <libfdt.h>
 #include <libfdt_internal.h>
+#include <slb.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -74,12 +75,12 @@ dump_props(void *fdt, int node, int depth)
 }
 
 
-
 static void
-dump_cpu(void *fdt)
+cpu_init(void *fdt)
 {
 	int cpu0_node;
 	const uint32_t *be32_data;
+	int slb_size;
 
 	cpu0_node = fdt_path_offset(fdt, "/cpus/cpu@0");
 	if (cpu0_node < 0) {
@@ -89,8 +90,13 @@ dump_cpu(void *fdt)
 
 	be32_data = fdt_getprop(fdt, cpu0_node, "slb-size", NULL);
 	if (be32_data != NULL) {
-		printk("SLB size = 0x%x\n", be32_to_cpu(*be32_data));
+		slb_size = be32_to_cpu(*be32_data);
+	} else {
+		printk("Assuming default SLB size\n");
+		slb_size = 32;
 	}
+	printk("SLB size = 0x%x\n", slb_size);
+	kpcr_get()->slb_size = slb_size;
 
 	be32_data = fdt_getprop(fdt, cpu0_node, "timebase-frequency", NULL);
 	if (be32_data != NULL) {
@@ -153,19 +159,22 @@ menu(void *fdt)
 {
 	int c = 0;
 
+	/* Clear any chars. */
+	while(getchar() != NO_CHAR);
+
 	printk("\nPick your poison:\n");
 	do {
 		if (c != NO_CHAR) {
 			printk("Choices: \n"
-			       "   (c) dump CPU\n"
 			       "   (f) dump FDT\n"
+			       "   (s) dump SLB\n"
 			       "   (q) poweroff\n");
 		}
 
 		c = getchar();
 		switch (c) {
-		case 'c':
-			dump_cpu(fdt);
+		case 's':
+			slb_dump();
 			break;
 		case 'f':
 			dump_nodes(fdt);
@@ -201,6 +210,10 @@ c_main(void *fdt)
 	printk("KPCR   = %p\n", kpcr_get());
 	printk("OPAL   = %p\n", kpcr_get()->opal_base);
 	printk("FDT    = %p\n", fdt);
+
+	cpu_init(fdt);
+	slb_init();
+	// tlb_init();
 
 	menu(fdt);
 }

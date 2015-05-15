@@ -143,7 +143,12 @@ OPAL_CALL(opal_write, OPAL_CONSOLE_WRITE)
 OPAL_CALL(opal_read, OPAL_CONSOLE_READ)
 
 /*
- * Toy per-cpu structure (for only 1 CPU).
+ * Toy per-cpu structure (for only 1 CPU). Sigh,
+ * I keep all sorts of stuff here that really isn't per-CPU :(,
+ * however, it's nice to be able to avoid immediate loads and
+ * use r13-based addressing, almost like GOT/TOC addressing, except
+ * is non-volatile in most sane situations. Think of it as the TLS
+ * pointer.
  */
 kpcr:
 kpcr_toc:
@@ -151,4 +156,6 @@ kpcr_toc:
 kpcr_opal_base:
 	.llong 0
 kpcr_opal_entry:
+	.llong 0
+slb_size:
 	.llong 0

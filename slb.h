@@ -1,5 +1,5 @@
 /*
- * KPCR and accessors.
+ * SLB stuff.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,27 +18,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef KPCR_H
-#define KPCR_H
+#ifndef SLB_H
+#define SLB_H
 
-#include <types.h>
-#include <defs.h>
+void slb_dump(void);
+void slb_init(void);
 
-/*
- * Must match kpcr in entry.S.
- */
-typedef struct {
-	uint64_t toc;
-	uint64_t opal_base;
-	uint64_t opal_entry;
-	uint64_t slb_size;
-} kpcr_t;
-
-
-static inline kpcr_t *
-kpcr_get(void)
-{
-	register kpcr_t *kpcr asm("r13");
-	return kpcr;
-}
-#endif /* KPCR_H */
+#endif /* SLB_H */
