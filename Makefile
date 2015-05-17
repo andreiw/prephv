@@ -19,6 +19,20 @@ skiboot/skiboot.lid:
 
 -include $(OBJ:.o=.d)
 
+# Default sed regexp - multiline due to syntax constraints
+define sed-command
+	"/^->/{s:->#\(.*\):/* \1 */:; \
+	s:^->\([^ ]*\) [\$$#]*\([-0-9]*\) \(.*\):#define \1 \2 /* \3 */:; \
+	s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; \
+	s:->::; p;}"
+endef
+
+asm-offset.h: asm-offset.s
+	sed -ne $(sed-command) $< > $@
+
+asm-offset.s: asm-offset.c
+	$(CC) $(ARCH_FLAGS) -S $< -o $@
+
 %.o: %.S
 	$(CC) $(ARCH_FLAGS) -D__ASSEMBLY__ -c -MMD -o $@ $<
 	@cp -f $*.d $*.d.tmp
@@ -34,11 +48,11 @@ skiboot/skiboot.lid:
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
 
-$(NAME): $(OBJ)
+$(NAME): asm-offset.h $(OBJ)
 	$(CC) $(ARCH_FLAGS)  -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x20010000 -lgcc -o $@ $^
 
 clean:
-	$(RM) $(NAME) *.o *.o.s *.d
+	$(RM) $(NAME) *.o *.o.s *.d asm-offset.h asm-offset.s
 cleaner: clean
 	git submodule deinit -f skiboot
 .PHONY: clean cleaner

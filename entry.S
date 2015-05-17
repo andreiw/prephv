@@ -32,35 +32,29 @@
 _GLOBAL(_start)
 	FIXUP_ENDIAN
 
-/*
- * Setup the stack. This is r1.
- */
+	/*
+	 * r3 - fdt
+	 * r8 - OPAL base
+	 * r9 - OPAL entry
+	 */
+	mr	r23, r3
+	mr	r28, r8
+	mr	r29, r9
+
+	/*
+	 * Setup the stack. This is r1.
+	 */
 	LOAD_IMM64(r1, _stack_top)
 	addi r1, r1, -STACKFRAMEMIN
 
-/*
- * Setup TOC for local calls. This must be in r2.
- */
+	/*
+	 * Setup TOC for local calls. This must be in r2.
+	 */
 	LOAD_IMM64(r2, .TOC.)
 
-/*
- * Point thread pointer to our toy per-cpu structure
- * and set it up, storing OPAL base/entry and TOC away in it.
- *
- * Why this is imporant: we need to be able to restore
- * our state inside opal_return. This is minimal since we
- * run in real mode, but still. Also needed once we care
- * to handle any exceptions.
- */
-	LOAD_IMM64(r13, kpcr)
-	mtspr	SPRN_HSRR0, r13
-	std	r8, KPCR(opal_base)
-	std	r9, KPCR(opal_entry)
-	std	r2, KPCR(toc)
-
-/*
- * Clear BSS (including a 0-sized BSS).
- */
+	/*
+	 * Clear BSS (including a 0-sized BSS).
+	 */
 	li	r0, 0
 	LOAD_ADDR(r8, _bss_start)
 	LOAD_ADDR(r9, _bss_end)
@@ -69,11 +63,29 @@ _GLOBAL(_start)
 	addi	r9, r9, 1
 	mtctr	r9
 	bdz	2f
+
 1:	std	r0, 0(r8)
 	addi	r8, r8, 8
 	bdnz	1b
 2:
 
+	/*
+	 * Point thread pointer to our toy per-cpu structure
+	 * and set it up, storing OPAL base/entry and TOC away in
+	 * it.
+	 *
+	 * Why this is imporant: we need to be able to restore
+	 * our state inside opal_return. This is minimal since we
+	 * run in real mode, but still. Also needed once we care
+	 * to handle any exceptions.
+	 */
+	LOAD_IMM64(r13, kpcr)
+	mtspr	SPRN_HSPRG0, r13
+	std	r28, KPCR(opal_base)
+	std	r29, KPCR(opal_entry)
+	std	r2, KPCR(toc)
+
+	mr	r3, r23
 	bl	c_main
 	/*
 	 * ABI mandates that a branch and link is followed by a
@@ -142,21 +154,3 @@ _GLOBAL(opal_return)
 OPAL_CALL(opal_write, OPAL_CONSOLE_WRITE)
 OPAL_CALL(opal_read, OPAL_CONSOLE_READ)
 OPAL_CALL(opal_reinit_cpus, OPAL_REINIT_CPUS)
-
-/*
- * Toy per-cpu structure (for only 1 CPU). Sigh,
- * I keep all sorts of stuff here that really isn't per-CPU :(,
- * however, it's nice to be able to avoid immediate loads and
- * use r13-based addressing, almost like GOT/TOC addressing, except
- * is non-volatile in most sane situations. Think of it as the TLS
- * pointer.
- */
-kpcr:
-kpcr_toc:
-	.llong 0
-kpcr_opal_base:
-	.llong 0
-kpcr_opal_entry:
-	.llong 0
-kpcr_slb_size:
-	.llong 0

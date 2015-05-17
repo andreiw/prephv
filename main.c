@@ -38,6 +38,7 @@ extern void * _start;
 extern void * _bss_start;
 extern void * _stack_start;
 extern void * _end;
+kpcr_t kpcr;
 
 
 static void

@@ -23,14 +23,11 @@
 
 #ifdef __ASSEMBLY__
 
-#define KPCR_R(name,reg) (kpcr_ ## name - kpcr)(reg)
-#define KPCR(name) KPCR_R(name, r13)
+#include <asm-offset.h>
 
-.globl kpcr
-.globl kpcr_toc
-.globl kpcr_opal_base
-.globl kpcr_opal_entry
-.globl kpcr_slb_size
+.extern kpcr
+#define KPCR_R(name,reg) (kpcr_ ## name)(reg)
+#define KPCR(name) KPCR_R(name, r13)
 
 #else /* !__ASSEMBLY__ */
 
@@ -38,9 +35,17 @@
 #include <defs.h>
 
 /*
- * Must match kpcr in entry.S.
+ * Toy per-cpu structure (for only 1 CPU). Sigh, I keep all
+ * sorts of stuff here that really isn't per-CPU :(, however,
+ * it's nice to be able to avoid immediate loads and use r13-
+ * -based addressing, almost like GOT/TOC addressing, except
+ * it is non-volatile in most sane situations. Think of it as
+ * the TLS pointer. Also, pointer is kept in HSPRG0 such that
+ * we can use it in exception handling. Yes, in this toy
+ * example I could just read r13, but it's nice to do things
+ * "for real".
  */
-typedef struct {
+typedef struct kpcr_s {
 	uint64_t toc;
 	uint64_t opal_base;
 	uint64_t opal_entry;
@@ -55,5 +60,4 @@ kpcr_get(void)
 	return kpcr;
 }
 #endif /* !__ASSEMBLY__ */
-
 #endif /* KPCR_H */
