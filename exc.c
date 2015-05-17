@@ -1,5 +1,5 @@
 /*
- * Various PPC accessors.
+ * Exception handling.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,47 +18,36 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef PPC_H
-#define PPC_H
-
 #include <types.h>
-#include <ppc-regs.h>
-#include <defs.h>
+#include <opal.h>
+#include <console.h>
+#include <ppc.h>
+#include <string.h>
+
+extern void *exc_base;
 
 
-static inline void
-lwsync(void)
+void
+exc_init(void)
 {
-	asm volatile ("lwsync" : : : "memory");
+
+	/*
+	 * MSR.ILE controls supervisor exception endianness. OPAL
+	 * takes care of setting the hypervisor exception endianness
+	 * bit in an implementation-neutral fashion. Mambo systemsim
+	 * doesn't seem to report a PVR version that Skiboot recognises
+	 * as supporting HID0.HILE, so we'll manually set it until
+	 * the skiboot patch goes in.
+	 */
+	if (opal_reinit_cpus(OPAL_REINIT_CPUS_HILE_LE) != OPAL_SUCCESS) {
+		printk("OPAL claims no HILE supported, pretend to know better...\n");
+		uint64_t hid0 = get_HID0();
+		set_HID0(hid0 | HID0_HILE);
+	}
+
+	/*
+	 * Copy vectors down.
+	 */
+	memcpy((void *) 0, &exc_base, EXC_TABLE_END);
+	lwsync();
 }
-
-
-static inline void
-isync(void)
-{
-	asm volatile ("isync" : : : "memory");
-}
-
-
-#define REG_READ_FN(reg)			\
-	static inline uint64_t			\
-	get_##reg(void)				\
-	{					\
-		uint64_t reg = 0;				\
-		asm volatile("mfspr %0, " S(SPRN_##reg) : "=r" (reg));	\
-		return reg;						\
-	}								\
-
-#define REG_WRITE_FN(reg)						\
-	static inline void						\
-	set_##reg(uint64_t reg)						\
-	{								\
-		asm volatile("mtspr "S(SPRN_##reg)", %0" :: "r" (reg));	\
-	}								\
-
-REG_READ_FN(HRMOR)
-REG_READ_FN(LPCR)
-REG_READ_FN(HID0)
-REG_WRITE_FN(HID0)
-
-#endif /* PPC_H */

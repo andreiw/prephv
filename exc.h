@@ -1,5 +1,5 @@
 /*
- * Various PPC accessors.
+ * Exception handling.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,47 +18,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef PPC_H
-#define PPC_H
+#ifndef EXC_H
+#define EXC_H
 
-#include <types.h>
-#include <ppc-regs.h>
-#include <defs.h>
+void exc_init(void);
 
-
-static inline void
-lwsync(void)
-{
-	asm volatile ("lwsync" : : : "memory");
-}
-
-
-static inline void
-isync(void)
-{
-	asm volatile ("isync" : : : "memory");
-}
-
-
-#define REG_READ_FN(reg)			\
-	static inline uint64_t			\
-	get_##reg(void)				\
-	{					\
-		uint64_t reg = 0;				\
-		asm volatile("mfspr %0, " S(SPRN_##reg) : "=r" (reg));	\
-		return reg;						\
-	}								\
-
-#define REG_WRITE_FN(reg)						\
-	static inline void						\
-	set_##reg(uint64_t reg)						\
-	{								\
-		asm volatile("mtspr "S(SPRN_##reg)", %0" :: "r" (reg));	\
-	}								\
-
-REG_READ_FN(HRMOR)
-REG_READ_FN(LPCR)
-REG_READ_FN(HID0)
-REG_WRITE_FN(HID0)
-
-#endif /* PPC_H */
+#endif /* EXC_H */

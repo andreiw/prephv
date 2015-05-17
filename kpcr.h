@@ -21,6 +21,19 @@
 #ifndef KPCR_H
 #define KPCR_H
 
+#ifdef __ASSEMBLY__
+
+#define KPCR_R(name,reg) (kpcr_ ## name - kpcr)(reg)
+#define KPCR(name) KPCR_R(name, r13)
+
+.globl kpcr
+.globl kpcr_toc
+.globl kpcr_opal_base
+.globl kpcr_opal_entry
+.globl kpcr_slb_size
+
+#else /* !__ASSEMBLY__ */
+
 #include <types.h>
 #include <defs.h>
 
@@ -41,4 +54,6 @@ kpcr_get(void)
 	register kpcr_t *kpcr asm("r13");
 	return kpcr;
 }
+#endif /* !__ASSEMBLY__ */
+
 #endif /* KPCR_H */

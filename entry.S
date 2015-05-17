@@ -21,8 +21,7 @@
 #include <asm-utils.h>
 #include <ppc-regs.h>
 #include <opal.h>
-
-#define KPCR(name) (kpcr_ ## name - kpcr)(r13)
+#include <kpcr.h>
 
 /*
 * Entering into this code we make the following assumptions:
@@ -54,6 +53,7 @@ _GLOBAL(_start)
  * to handle any exceptions.
  */
 	LOAD_IMM64(r13, kpcr)
+	mtspr	SPRN_HSRR0, r13
 	std	r8, KPCR(opal_base)
 	std	r9, KPCR(opal_entry)
 	std	r2, KPCR(toc)
@@ -141,6 +141,7 @@ _GLOBAL(opal_return)
 
 OPAL_CALL(opal_write, OPAL_CONSOLE_WRITE)
 OPAL_CALL(opal_read, OPAL_CONSOLE_READ)
+OPAL_CALL(opal_reinit_cpus, OPAL_REINIT_CPUS)
 
 /*
  * Toy per-cpu structure (for only 1 CPU). Sigh,
@@ -157,5 +158,5 @@ kpcr_opal_base:
 	.llong 0
 kpcr_opal_entry:
 	.llong 0
-slb_size:
+kpcr_slb_size:
 	.llong 0

@@ -28,6 +28,8 @@
 #include <libfdt.h>
 #include <libfdt_internal.h>
 #include <slb.h>
+#include <exc.h>
+#include <ppc.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -102,6 +104,10 @@ cpu_init(void *fdt)
 	if (be32_data != NULL) {
 		printk("TB freq = 0x%x\n", be32_to_cpu(*be32_data));
 	}
+
+	exc_init();
+	slb_init();
+	// tlb_init();
 }
 
 
@@ -166,6 +172,7 @@ menu(void *fdt)
 	do {
 		if (c != NO_CHAR) {
 			printk("Choices: \n"
+			       "   (e) test exception\n"
 			       "   (f) dump FDT\n"
 			       "   (s) dump SLB\n"
 			       "   (q) poweroff\n");
@@ -181,6 +188,11 @@ menu(void *fdt)
 			break;
 		case 'q':
 			return;
+		case 'e':
+			printk("Testing exception handling...");
+			asm volatile("sc");
+			printk("done\n");
+			break;
 		}
 	} while(1);
 }
@@ -212,8 +224,5 @@ c_main(void *fdt)
 	printk("FDT    = %p\n", fdt);
 
 	cpu_init(fdt);
-	slb_init();
-	// tlb_init();
-
 	menu(fdt);
 }

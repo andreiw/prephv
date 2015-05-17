@@ -1,5 +1,5 @@
 /*
- * Various PPC accessors.
+ * Exception handlers.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,47 +18,51 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef PPC_H
-#define PPC_H
-
-#include <types.h>
+#include <asm-utils.h>
 #include <ppc-regs.h>
-#include <defs.h>
+#include <opal.h>
+#include <kpcr.h>
 
+.p2align 8
+.globl exc_base
+exc_base:
+	rfid
 
-static inline void
-lwsync(void)
-{
-	asm volatile ("lwsync" : : : "memory");
-}
+#define DEF_EXC(name)				\
+	.org exc_base + EXC_##name;		\
+	.globl exc_##name;			\
+	exc_##name:				\
+	b exc_base;				\
 
-
-static inline void
-isync(void)
-{
-	asm volatile ("isync" : : : "memory");
-}
-
-
-#define REG_READ_FN(reg)			\
-	static inline uint64_t			\
-	get_##reg(void)				\
-	{					\
-		uint64_t reg = 0;				\
-		asm volatile("mfspr %0, " S(SPRN_##reg) : "=r" (reg));	\
-		return reg;						\
-	}								\
-
-#define REG_WRITE_FN(reg)						\
-	static inline void						\
-	set_##reg(uint64_t reg)						\
-	{								\
-		asm volatile("mtspr "S(SPRN_##reg)", %0" :: "r" (reg));	\
-	}								\
-
-REG_READ_FN(HRMOR)
-REG_READ_FN(LPCR)
-REG_READ_FN(HID0)
-REG_WRITE_FN(HID0)
-
-#endif /* PPC_H */
+DEF_EXC(RESET)
+DEF_EXC(MC)
+DEF_EXC(DSI)
+DEF_EXC(DSEG)
+DEF_EXC(ISI)
+DEF_EXC(ISEG)
+DEF_EXC(EXT)
+DEF_EXC(ALIGN)
+DEF_EXC(PROG)
+DEF_EXC(FPU)
+DEF_EXC(DEC)
+DEF_EXC(HDEC)
+DEF_EXC(DOOR)
+DEF_EXC(RESV)
+DEF_EXC(SC)
+DEF_EXC(TRACE)
+DEF_EXC(HDSI)
+DEF_EXC(HISI)
+DEF_EXC(HEA)
+DEF_EXC(HMAINT)
+DEF_EXC(HDOOR)
+DEF_EXC(RESV1)
+DEF_EXC(RESV2)
+DEF_EXC(IMPL)
+DEF_EXC(PMU)
+DEF_EXC(VECUN)
+DEF_EXC(VSX)
+DEF_EXC(FAC)
+DEF_EXC(HFAC)
+.org exc_base + EXC_TABLE_END
+.globl exc_table_end
+exc_table_end:

@@ -25,6 +25,8 @@
 #define ALIGN_UP(addr, align) (((addr) + (align) - 1) & (~((align) - 1)))
 #define PALIGN_UP(p, align) ((typeof(p))(((uintptr_t)(p) + (align) - 1) & (~((align) - 1))))
 #define ALIGN(addr, align) (((addr) - 1) & (~((align) - 1)))
+#define S(x) _S(x)
+#define _S(x) #x
 
 #define __packed                __attribute__((packed))
 #define __align(x)              __attribute__((__aligned__(x)))

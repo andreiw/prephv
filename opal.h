@@ -36,16 +36,19 @@
 #define OPAL_BUSY_EVENT         -12
 #define OPAL_HARDWARE_FROZEN    -13
 
-#define OPAL_TERMINAL_0 0
+#define OPAL_CONSOLE_WRITE       1
+#define OPAL_CONSOLE_READ        2
+#define OPAL_TERMINAL_0          0
 
-#define OPAL_CONSOLE_WRITE 1
-#define OPAL_CONSOLE_READ  2
+#define OPAL_REINIT_CPUS         70
+#define OPAL_REINIT_CPUS_HILE_LE (1 << 1)
 
 #ifndef __ASSEMBLY__
 typedef int opal_return_t;
 
 opal_return_t opal_write(int terminal, length_t *len, char *buf);
 opal_return_t opal_read(int terminal, length_t *len, char *buf);
-#endif /* __ASSEMBLY__ */
+opal_return_t opal_reinit_cpus(uint64_t flags);
 
+#endif /* __ASSEMBLY__ */
 #endif /* OPAL_H */
