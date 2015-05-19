@@ -19,7 +19,7 @@
  */
 
 #include <asm-utils.h>
-#include <ppc-regs.h>
+#include <ppc-defs.h>
 #include <opal.h>
 #include <kpcr.h>
 
@@ -49,8 +49,14 @@ _GLOBAL(_start)
 
 	/*
 	 * Setup TOC for local calls. This must be in r2.
+	 *
+	 * You can also accomplish the same via:
+	 * LOAD_IMM64(r3, .TOC.)
+	 *
+	 * ...but if you screw up your linker script, .TOC.
+	 * and __toc_start won't match.
 	 */
-	LOAD_IMM64(r2, .TOC.)
+	LOAD_IMM64(r2, __toc_start)
 
 	/*
 	 * Clear BSS (including a 0-sized BSS).

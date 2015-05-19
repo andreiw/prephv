@@ -19,7 +19,7 @@
  */
 
 #include <asm-utils.h>
-#include <ppc-regs.h>
+#include <ppc-defs.h>
 #include <opal.h>
 #include <kpcr.h>
 

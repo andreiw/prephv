@@ -23,8 +23,10 @@
 #include <console.h>
 #include <ppc.h>
 #include <string.h>
+#include <kpcr.h>
 
 extern void *exc_base;
+extern void *_exc_stack_top;
 
 
 void
@@ -44,6 +46,12 @@ exc_init(void)
 		uint64_t hid0 = get_HID0();
 		set_HID0(hid0 | HID0_HILE);
 	}
+
+	/*
+	 * Exception stack.
+	 */
+	kpcr_get()->exc_r1 = (uint64_t) &_exc_stack_top - STACKFRAMEMIN;
+	printk("Exception stack top @ 0x%x\n", kpcr_get()->exc_r1);
 
 	/*
 	 * Copy vectors down.

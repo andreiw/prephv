@@ -11,7 +11,6 @@
  */
 
 #include <asm-utils.h>
-#include <ppc-regs.h>
 
 _GLOBAL(strcpy)
         addi    r5,r3,-1

@@ -22,7 +22,7 @@
 #define PPC_H
 
 #include <types.h>
-#include <ppc-regs.h>
+#include <ppc-defs.h>
 #include <defs.h>
 
 
