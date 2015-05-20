@@ -24,9 +24,60 @@
 #include <ppc.h>
 #include <string.h>
 #include <kpcr.h>
+#include <exc.h>
 
 extern void *exc_base;
 extern void *_exc_stack_top;
+
+
+void
+exc_handler(eframe_t *frame)
+{
+	switch (frame->vec) {
+	case EXC_HDEC:
+	case EXC_HDSI:
+	case EXC_HISI:
+	case EXC_HEA:
+	case EXC_HMAINT:
+	case EXC_HDOOR:
+	case EXC_HFAC:
+		frame->hsrr0 = get_HSRR0();
+		frame->hsrr1 = get_HSRR1();
+	default:
+		/*
+		 * Saved MSR/PC get stored in
+		 * in different registers depending
+		 * on the exception type. But we'll
+		 * always use hrfid to return, and thus
+		 * will always use HSRR0/HSRR1.
+		 */
+		frame->hsrr0 = get_SRR0();
+		frame->hsrr1 = get_SRR1();
+	}
+
+	if (frame->vec == EXC_SC) {
+		frame->r3 = frame->r3 << 16 | 0xface;
+		exc_rfi(frame);
+	}
+
+	printk("Exception 0x%x\n"
+	       "PC  = 0x%x\n"
+	       "MSR = 0x%x\n",
+	       frame->vec,
+	       frame->hsrr0, frame->hsrr1);
+
+#define D(x) printk(#x " = 0x%x\n", frame->x)
+	D(r0); D(r1); D(r2); D(r3); D(r4); D(r5);
+	D(r6); D(r7); D(r8); D(r9); D(r10); D(r11);
+	D(r12); D(r13); D(r14); D(r15); D(r16); D(r17);
+	D(r18); D(r19); D(r20); D(r21); D(r22); D(r23);
+	D(r24); D(r25); D(r26); D(r27); D(r28); D(r29);
+	D(r30); D(r31); D(lr); D(ctr); D(xer); D(cr);
+#undef D
+
+	printk("Hanging here...\n");
+	while(1);
+}
 
 
 void
@@ -51,7 +102,9 @@ exc_init(void)
 	 * Exception stack.
 	 */
 	kpcr_get()->exc_r1 = (uint64_t) &_exc_stack_top - STACKFRAMEMIN;
+	kpcr_get()->exc_handler = (uint64_t) exc_handler;
 	printk("Exception stack top @ 0x%x\n", kpcr_get()->exc_r1);
+	printk("Exception handler @ 0x%x\n", kpcr_get()->exc_handler);
 
 	/*
 	 * Copy vectors down.

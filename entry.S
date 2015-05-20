@@ -45,7 +45,7 @@ _GLOBAL(_start)
 	 * Setup the stack. This is r1.
 	 */
 	LOAD_IMM64(r1, _stack_top)
-	addi r1, r1, -STACKFRAMEMIN
+	subi	r1, r1, STACKFRAMEMIN
 
 	/*
 	 * Setup TOC for local calls. This must be in r2.

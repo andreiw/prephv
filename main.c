@@ -161,6 +161,17 @@ dump_nodes(void *fdt)
 }
 
 
+static void
+test_syscall(void)
+{
+	register unsigned int r3 __asm__ ("r3");
+	printk("Testing exception handling...");
+	r3 = 0xfeed;
+	asm volatile("sc" : "=r" (r3) : "r" (r3));
+	printk("done (got 0x%x)\n", r3);
+}
+
+
 void
 menu(void *fdt)
 {
@@ -190,9 +201,7 @@ menu(void *fdt)
 		case 'q':
 			return;
 		case 'e':
-			printk("Testing exception handling...");
-			asm volatile("sc");
-			printk("done\n");
+			test_syscall();
 			break;
 		}
 	} while(1);

@@ -101,6 +101,8 @@
 #define HID0_HILE       __MASK(63 - 19) /* Hypervisor interrupt LE on Power8 */
 #define SPRN_LPCR       0x13E           /* LPAR Control Register */
 #define SPRN_HRMOR      0x139           /* Real mode offset register */
+#define SPRN_SRR0       0x01A           /* Save/Restore Register 0 */
+#define SPRN_SRR1       0x01B           /* Save/Restore Register 1 */
 #define SPRN_HSRR0      0x13A           /* Save/Restore Register 0 */
 #define SPRN_HSRR1      0x13B           /* Save/Restore Register 1 */
 #define SPRN_HSPRG0     0x130           /* Hypervisor Scratch 0 */
