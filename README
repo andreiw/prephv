@@ -18,13 +18,13 @@ What you get:
 - calling C code, stack/BSS/linkage setup/TOC
 - calling BE code from LE
 - FDT parsing, dumping FDT
+- Taking and returning from exceptions
 
 There's some ongoing work on setting up the MMU in 1:1 mode. Come back soon.
 Today there's just the code to initialize the SLB with an identity EA->VA
 mapping for the first 1TB. No HTAB code yet (damn paternity leave ending!),
 but at some point you'll be able to interactively turn it on and off
-and see a difference :-D. This will also need exception handling working.
-Heh.
+and see a difference :-D.
 
 Hopefully the code is clear enough and not too messy. I'm not trying hard
 enough ;-(.
@@ -52,26 +52,38 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 
 You're looking for output like -
 ...
-14850345: (14850345): [14846541,3] ELOG: Error getting buffer to log error
 19043637: (19043637): [19037248,5] INIT: Starting kernel at 0x20010000, fdt at 0x30203458 (size 0x114c)
-19043950: (19043948): Hello Mambo!
-19044713: (19044711): Hello OPAL!
-19045321: (19045319): _start = 0x20010000
-19057843: (19057537): _bss   = 0x20016000
-19070365: (19069755): _stack = 0x20016000
-19082887: (19081973): _end   = 0x20017000
-19095418: (19094200): KPCR   = 0x2001016C
-19107950: (19106428): OPAL   = 0x30000000
-19120471: (19118645): FDT    = 0x30203458
-19189263: (19187133): SLB size = 0x20
-19231806: (19229600): TB freq = 0x1E848000
+19043973: (19043971): Hello Mambo!
+19044736: (19044734): Hello OPAL!
+19045344: (19045342): _start = 0x20010000
+19057866: (19057560): _bss   = 0x20016020
+19070388: (19069778): _stack = 0x20017000
+19082910: (19081996): _end   = 0x20019000
+19095441: (19094223): KPCR   = 0x20016020
+19107973: (19106451): OPAL   = 0x30000000
+19120494: (19118668): FDT    = 0x30203458
+19189286: (19187156): SLB size = 0x20
+19231829: (19229623): TB freq = 0x1E848000
+19248918: (19246408): [19244625,3] OPAL: Trying a CPU re-init with flags: 0x2
+19257680: (19255170): [19250158,3] SLW: Not found on chip 0
+19261737: (19259227): [19257933,3] ELOG: Error getting buffer to log error
+19262448: (19259938): OPAL claims no HILE supported, pretend to know better...
+19296075: (19293565): Exception stack top @ 0x20018FE0
+19316171: (19313357): Exception handler @ 0x20015264
 
-19245612: (19243100): Pick your poison:
-19256516: (19254004): Choices: 
-19262355: (19259843):    (f) dump FDT
-19271680: (19269168):    (s) dump SLB
-19281005: (19278493):    (q) poweroff
-...
+19338929: (19335807): Pick your poison:
+19349833: (19346711): Choices: 
+19355672: (19352550):    (e) test exception
+19368483: (19365361):    (f) dump FDT
+19377808: (19374686):    (s) dump SLB
+19387133: (19384011):    (q) poweroff
+20757731: (20754609): Testing exception handling...done (got 0xFEEDFACE)
+20788867: (20785441): Choices: 
+20794706: (20791280):    (e) test exception
+20807517: (20804091):    (f) dump FDT
+20816842: (20813416):    (s) dump SLB
+20826167: (20822741):    (q) poweroff
+INFO: 22538609: (22535184): ** Execution stopped: ATTN signal to service processor,  **
 
 You can interact with this, (q) will shut down the sim.
 
