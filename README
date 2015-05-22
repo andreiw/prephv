@@ -18,7 +18,8 @@ What you get:
 - calling C code, stack/BSS/linkage setup/TOC
 - calling BE code from LE
 - FDT parsing, dumping FDT
-- Taking and returning from exceptions
+- Taking and returning from exceptions, handling
+  unrecoverable/nested exceptions.
 - Timebase (i.e. the "timestamp counter")
 
 There's some ongoing work on setting up the MMU in 1:1 mode. Come back soon.
@@ -71,13 +72,14 @@ You're looking for output like -
 19279135: (19276587): Exception stack top @ 0x20018FE0
 19299231: (19296379): Exception handler @ 0x20015364
 
-19321989: (19318829): Pick your poison:
-19332896: (19329734): Choices:
-19338735: (19335573):    (d) 5s delay
-19348060: (19344898):    (e) test exception
-19360871: (19357709):    (f) dump FDT
-19370196: (19367034):    (s) dump SLB
-19379521: (19376359):    (q) poweroff
+19357385: (19353921): Pick your poison:
+19368290: (19364826): Choices:
+19373548: (19370084):    (d) 5s delay
+19382873: (19379409):    (e) test exception
+19395684: (19392220):    (n) test nested exception
+19412562: (19409098):    (f) dump FDT
+19421887: (19418423):    (s) dump SLB
+19431212: (19427748):    (q) poweroff
 
 You can interact with this, (q) will shut down the sim.
 

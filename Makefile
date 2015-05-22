@@ -41,8 +41,8 @@ asm-offset.s: asm-offset.c
 	@rm -f $*.d.tmp
 
 %.o: %.c
-	$(CC) $(ARCH_FLAGS) -c -MMD -o $@ $<
 	$(CC) $(ARCH_FLAGS) -S $< -o $@.s
+	$(CC) $(ARCH_FLAGS) -c -MMD -o $@ $<
 	@cp -f $*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d

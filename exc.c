@@ -27,40 +27,33 @@
 #include <exc.h>
 
 extern void *exc_base;
-extern void *_exc_stack_top;
+extern void *exc_end;
+extern void *_unrec_stack_top;
+extern void *_rec_stack_top;
 
 
 void
 exc_handler(eframe_t *frame)
 {
-	switch (frame->vec) {
-	case EXC_HDEC:
-	case EXC_HDSI:
-	case EXC_HISI:
-	case EXC_HEA:
-	case EXC_HMAINT:
-	case EXC_HDOOR:
-	case EXC_HFAC:
-		frame->hsrr0 = get_HSRR0();
-		frame->hsrr1 = get_HSRR1();
-	default:
+	if ((frame->hsrr1 & MSR_RI) == 0) {
 		/*
-		 * Saved MSR/PC get stored in
-		 * in different registers depending
-		 * on the exception type. But we'll
-		 * always use hrfid to return, and thus
-		 * will always use HSRR0/HSRR1.
+		 * Unrecoverable, possibly nested exception.
 		 */
-		frame->hsrr0 = get_SRR0();
-		frame->hsrr1 = get_SRR1();
+		goto bad;
 	}
 
 	if (frame->vec == EXC_SC) {
+		if (frame->r3 == 0xdead) {
+			printk("Triggering nested exception crash\n");
+			asm volatile("sc");
+		}
+
 		frame->r3 = frame->r3 << 16 | 0xface;
 		exc_rfi(frame);
 	}
 
-	printk("Exception 0x%x\n"
+bad:
+	printk("Unrecoverable exception 0x%x\n"
 	       "PC  = 0x%x\n"
 	       "MSR = 0x%x\n",
 	       frame->vec,
@@ -101,14 +94,25 @@ exc_init(void)
 	/*
 	 * Exception stack.
 	 */
-	kpcr_get()->exc_r1 = (uint64_t) &_exc_stack_top - STACKFRAMEMIN;
+	kpcr_get()->unrec_sp = (uint64_t) &_unrec_stack_top - sizeof(eframe_t);
+	printk("Unrecoverable exception stack top @ 0x%x\n",
+	       kpcr_get()->unrec_sp);
+	kpcr_get()->rec_sp = (uint64_t) &_rec_stack_top;
+	printk("Recoverable exception stack top @ 0x%x\n",
+	       kpcr_get()->rec_sp);
 	kpcr_get()->exc_handler = (uint64_t) exc_handler;
-	printk("Exception stack top @ 0x%x\n", kpcr_get()->exc_r1);
 	printk("Exception handler @ 0x%x\n", kpcr_get()->exc_handler);
 
 	/*
 	 * Copy vectors down.
 	 */
-	memcpy((void *) 0, &exc_base, EXC_TABLE_END);
+	memcpy((void *) 0, &exc_base,
+	       (uint64_t) &exc_end - (uint64_t) &exc_base);
 	lwsync();
+
+	/*
+	 * Context is now recoverable.
+	 */
+	mtmsrd(MSR_RI, 1);
+
 }

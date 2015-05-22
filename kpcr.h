@@ -50,7 +50,8 @@ typedef struct kpcr_s {
 	uint64_t opal_base;
 	uint64_t opal_entry;
 	uint64_t slb_size;
-	uint64_t exc_r1;
+	uint64_t unrec_sp;
+	uint64_t rec_sp;
 	uint64_t exc_handler;
 	uint64_t tb_freq;
 } kpcr_t;

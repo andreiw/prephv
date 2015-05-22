@@ -168,14 +168,13 @@ dump_nodes(void *fdt)
 }
 
 
-static void
-test_syscall(void)
+static uint64_t
+test_syscall(uint64_t param)
 {
-	register unsigned int r3 __asm__ ("r3");
-	printk("Testing exception handling...");
-	r3 = 0xfeed;
+	register uint64_t r3 __asm__ ("r3");
+	r3 = param;
 	asm volatile("sc" : "=r" (r3) : "r" (r3));
-	printk("done (got 0x%x)\n", r3);
+	return r3;
 }
 
 
@@ -193,6 +192,7 @@ menu(void *fdt)
 			printk("Choices:\n"
 			       "   (d) 5s delay\n"
 			       "   (e) test exception\n"
+			       "   (n) test nested exception\n"
 			       "   (f) dump FDT\n"
 			       "   (s) dump SLB\n"
 			       "   (q) poweroff\n");
@@ -209,7 +209,12 @@ menu(void *fdt)
 		case 'q':
 			return;
 		case 'e':
-			test_syscall();
+			printk("Testing exception handling...\n");
+			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed));
+			break;
+		case 'n':
+			printk("Testing  nested exception handling...\n");
+			printk("sc(dead) => 0x%x\n", test_syscall(0xdead));
 			break;
 		case 'd':
 			time_delay(secs_to_tb(5));

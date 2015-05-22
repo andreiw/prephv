@@ -47,9 +47,12 @@ SECTIONS
 		_stack_start = .;
 		. += 4096;
 		_stack_top = .;
-		_exc_stack_start = .;
+		_unrec_stack_start = .;
 		. += 4096;
-		_exc_stack_top = .;
+		_unrec_stack_top = .;
+		_rec_stack_start = .;
+		. += 4096;
+		_rec_stack_top = .;
 	}
 
 	_end = . ;

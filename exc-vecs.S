@@ -23,13 +23,108 @@
 #include <opal.h>
 #include <kpcr.h>
 
+#define DEF_EXC(name, where)			\
+	.org exc_base + EXC_##name;		\
+	.globl exc_##name;			\
+	exc_##name:				\
+	mtspr	SPRN_HSPRG1, r1;		\
+	mfspr	r1, SPRN_HSPRG0;		\
+	ld	r1, KPCR_R(unrec_sp, r1);	\
+	std	r0, eframe_r0(r1);		\
+	li	r0, EXC_##name;			\
+	std	r0, eframe_vec(r1);		\
+	std	r2, eframe_r2(r1);		\
+	/*					\
+	 * Enter with vec#, r0 and r2 saved to	\
+	 * unrec_sp. r1 in SPRG1.		\
+	 */					\
+	b where;				\
+
 .p2align 8
 .globl exc_base
 exc_base:
-	std	r0, eframe_vec(r1)
-	mfspr	r0, SPRN_HSPRG1
+DEF_EXC(RESET, exc_sys)
+DEF_EXC(MC, exc_sys)
+DEF_EXC(DSI, exc_sys)
+DEF_EXC(DSEG, exc_sys)
+DEF_EXC(ISI, exc_sys)
+DEF_EXC(ISEG, exc_sys)
+DEF_EXC(EXT, exc_sys)
+DEF_EXC(ALIGN, exc_sys)
+DEF_EXC(PROG, exc_sys)
+DEF_EXC(FPU, exc_sys)
+DEF_EXC(DEC, exc_sys)
+DEF_EXC(HDEC, exc_hv)
+DEF_EXC(DOOR, exc_sys)
+DEF_EXC(RESV, exc_sys)
+DEF_EXC(SC, exc_sys)
+DEF_EXC(TRACE, exc_sys)
+DEF_EXC(HDSI, exc_hv)
+DEF_EXC(HISI, exc_hv)
+DEF_EXC(HEA, exc_hv)
+DEF_EXC(HMAINT, exc_hv)
+DEF_EXC(HDOOR, exc_hv)
+DEF_EXC(RESV1, exc_sys)
+DEF_EXC(RESV2, exc_sys)
+DEF_EXC(IMPL, exc_sys)
+DEF_EXC(PMU, exc_sys)
+DEF_EXC(VECUN, exc_sys)
+DEF_EXC(VSX, exc_sys)
+DEF_EXC(FAC, exc_sys)
+DEF_EXC(HFAC, exc_hv)
+.org exc_base + EXC_TABLE_END + 1
+exc_hv:
+	mfspr	r0, SPRN_HSRR0
+	std	r0, eframe_hsrr0(r1)
+	mfspr	r0, SPRN_HSRR1
+	std	r0, eframe_hsrr1(r1)
+	b	exc_cont
+exc_sys:
+	/*
+	 * Saved MSR/PC get stored in
+	 * in different registers depending
+	 * on the exception type. But we'll
+	 * always use hrfid to return, and thus
+	 * will always use HSRR0/HSRR1.
+	 */
+	mfspr	r0, SPRN_SRR0
+	std	r0, eframe_hsrr0(r1)
+	mfspr	r0, SPRN_SRR1
+	std	r0, eframe_hsrr1(r1)
+exc_cont:
+	/*
+	 * If this is a nested exception,
+	 * continue saving to top of the
+	 * unrecoverable stack r1. Otherwise,
+	 * load the normal exception handling
+	 * stack, and copy stashed vec, r0, r2, hsrr0
+	 * and hsrr1 values to it.
+	 *
+	 * r1 - unrecoverable exception stack
+	 * r2 - recoverable exception stack
+	 * r0 - scratch.
+	 */
+	andi.	r0, r0, MSR_RI
+	beq-	1f
+	mfspr	r2, SPRN_HSPRG0
+	ld	r2, KPCR_R(rec_sp, r2)
+	subi	r2, r2, eframe_sizeof
+	ld	r0, eframe_vec(r1)
+	std	r0, eframe_vec(r2)
+	ld	r0, eframe_r0(r1)
+	std	r0, eframe_r0(r2)
+	ld	r0, eframe_r2(r1)
+	std	r0, eframe_r2(r2)
+	ld	r0, eframe_hsrr0(r1)
+	std	r0, eframe_hsrr0(r2)
+	ld	r0, eframe_hsrr1(r1)
+	std	r0, eframe_hsrr1(r2)
+	/*
+	 * Switch to recoverable exception stack.
+	 */
+	mr	r1, r2
+1:	mfspr	r0, SPRN_HSPRG1
 	std	r0, eframe_r1(r1)
-	std	r2, eframe_r2(r1)
 	std	r3, eframe_r3(r1)
 	std	r4, eframe_r4(r1)
 	std	r5, eframe_r5(r1)
@@ -71,56 +166,28 @@ exc_base:
 	ld	r2, KPCR(toc)
 	mr	r3, r1
 	subi	r1, r1, STACKFRAMEMIN
+	/*
+	 * Store updated recoverable exception stack
+	 * and jump to handler.
+	 */
+	std	r1, KPCR(rec_sp)
 	ld	r0, KPCR(exc_handler)
-	mtctr	r0
-	bctr
-
-#define DEF_EXC(name)				\
-	.org exc_base + EXC_##name;		\
-	.globl exc_##name;			\
-	exc_##name:				\
-	mtspr	SPRN_HSPRG1, r1;		\
-	mfspr	r1, SPRN_HSPRG0;		\
-	ld	r1, KPCR_R(exc_r1, r1);		\
-	subi	r1, r1, eframe_sizeof;		\
-	std	r0, eframe_r0(r1);		\
-	li	r0, EXC_##name;			\
-	b exc_base;				\
-
-DEF_EXC(RESET)
-DEF_EXC(MC)
-DEF_EXC(DSI)
-DEF_EXC(DSEG)
-DEF_EXC(ISI)
-DEF_EXC(ISEG)
-DEF_EXC(EXT)
-DEF_EXC(ALIGN)
-DEF_EXC(PROG)
-DEF_EXC(FPU)
-DEF_EXC(DEC)
-DEF_EXC(HDEC)
-DEF_EXC(DOOR)
-DEF_EXC(RESV)
-DEF_EXC(SC)
-DEF_EXC(TRACE)
-DEF_EXC(HDSI)
-DEF_EXC(HISI)
-DEF_EXC(HEA)
-DEF_EXC(HMAINT)
-DEF_EXC(HDOOR)
-DEF_EXC(RESV1)
-DEF_EXC(RESV2)
-DEF_EXC(IMPL)
-DEF_EXC(PMU)
-DEF_EXC(VECUN)
-DEF_EXC(VSX)
-DEF_EXC(FAC)
-DEF_EXC(HFAC)
-.org exc_base + EXC_TABLE_END
-.globl exc_table_end
-exc_table_end:
+	mtlr	r0
+	blr
+.globl exc_end
+exc_end:
 
 _GLOBAL(exc_rfi)
+	/*
+	 * We only recover from recoverable exceptions so
+	 * we know we must be using the recoverable stack.
+	 */
+	mr	r1, r3
+	addi	r1, r1, eframe_sizeof
+	std	r1, KPCR(rec_sp)
+	/*
+	 * Now to restore everything...
+	 */
 	ld	r0, eframe_hsrr1(r3)
 	mtspr	SPRN_HSRR1, r0
 	ld	r0, eframe_hsrr0(r3)

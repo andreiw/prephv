@@ -37,7 +37,8 @@ unused(void)
 	OFFSET(kpcr_opal_base, kpcr_s, opal_base);
 	OFFSET(kpcr_opal_entry, kpcr_s, opal_entry);
 	OFFSET(kpcr_slb_size, kpcr_s, slb_size);
-	OFFSET(kpcr_exc_r1, kpcr_s, exc_r1);
+	OFFSET(kpcr_unrec_sp, kpcr_s, unrec_sp);
+	OFFSET(kpcr_rec_sp, kpcr_s, rec_sp);
 	OFFSET(kpcr_exc_handler, kpcr_s, exc_handler);
 
 	/* Exception frame stuff. */

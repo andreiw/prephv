@@ -78,6 +78,30 @@ mftb(void)
 }
 
 
+static inline uint64_t
+mfmsr(void)
+{
+	uint64_t val;
+
+	asm volatile("mfmsr %0" : "=r"(val) : : "memory");
+	return val;
+}
+
+
+static inline void
+mtmsr(uint64_t val)
+{
+	asm volatile("mtmsr %0" : : "r"(val) : "memory");
+}
+
+
+static inline void  __alwaysinline
+mtmsrd(uint64_t val, const int l)
+{
+	asm volatile("mtmsrd %0,%1" : : "r"(val), "i"(l) : "memory");
+}
+
+
 static inline void smt_low(void)        { asm volatile("or 1,1,1");     }
 static inline void smt_medium(void)     { asm volatile("or 2,2,2");     }
 static inline void smt_high(void)       { asm volatile("or 3,3,3");     }
