@@ -36,5 +36,6 @@
 #define __noreturn              __attribute__((noreturn))
 #define __attrconst             __attribute__((const))
 #define __warn_unused_result    __attribute__((warn_unused_result))
+#define __nomcount              __attribute__((no_instrument_function))
 
 #endif /* DEFS_H */

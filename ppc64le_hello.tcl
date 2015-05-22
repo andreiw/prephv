@@ -67,8 +67,8 @@ myconf config processor_option/stop_on_illegal_instruction $mconf(stop_on_ill)
 myconf config UART/0/enabled false
 myconf config SimpleUART/enabled false
 myconf config enable_rtas_support false
-myconf config processor/cpu_frequency 512M
-myconf config processor/timebase_frequency 1/1
+myconf config processor/cpu_frequency 512K
+myconf config processor/timebase_frequency 512M
 myconf config enable_pseries_nvram false
 
 define machine myconf mysim

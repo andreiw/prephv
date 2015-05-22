@@ -5,7 +5,7 @@ ARCH_FLAGS = -msoft-float -mpowerpc64 -mabi=elfv2 -mlittle-endian -mno-strict-al
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector \
              -I./ -Wall -Werror
 
-OBJ =  entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o slb.o exc-vecs.o exc.o
+OBJ =  entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o slb.o exc-vecs.o exc.o time.o
 NAME =  ppc64le_hello
 
 all: $(NAME)

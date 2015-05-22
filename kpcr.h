@@ -52,10 +52,11 @@ typedef struct kpcr_s {
 	uint64_t slb_size;
 	uint64_t exc_r1;
 	uint64_t exc_handler;
+	uint64_t tb_freq;
 } kpcr_t;
 
 
-static inline kpcr_t *
+static inline __nomcount kpcr_t *
 kpcr_get(void)
 {
 	register kpcr_t *kpcr asm("r13");

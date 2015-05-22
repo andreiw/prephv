@@ -30,6 +30,7 @@
 #include <slb.h>
 #include <exc.h>
 #include <ppc.h>
+#include <time.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -83,7 +84,8 @@ cpu_init(void *fdt)
 {
 	int cpu0_node;
 	const uint32_t *be32_data;
-	int slb_size;
+	unsigned int slb_size;
+	unsigned int tb_freq;
 
 	cpu0_node = fdt_path_offset(fdt, "/cpus/cpu@0");
 	if (cpu0_node < 0) {
@@ -103,8 +105,13 @@ cpu_init(void *fdt)
 
 	be32_data = fdt_getprop(fdt, cpu0_node, "timebase-frequency", NULL);
 	if (be32_data != NULL) {
-		printk("TB freq = 0x%x\n", be32_to_cpu(*be32_data));
+		tb_freq = be32_to_cpu(*be32_data);
+	} else {
+		printk("Assuming default TB frequency\n");
+		tb_freq = 512000000;
 	}
+	printk("TB freq = %u\n", tb_freq);
+	kpcr_get()->tb_freq = tb_freq;
 
 	exc_init();
 	slb_init();
@@ -183,7 +190,8 @@ menu(void *fdt)
 	printk("\nPick your poison:\n");
 	do {
 		if (c != NO_CHAR) {
-			printk("Choices: \n"
+			printk("Choices:\n"
+			       "   (d) 5s delay\n"
 			       "   (e) test exception\n"
 			       "   (f) dump FDT\n"
 			       "   (s) dump SLB\n"
@@ -202,6 +210,9 @@ menu(void *fdt)
 			return;
 		case 'e':
 			test_syscall();
+			break;
+		case 'd':
+			time_delay(secs_to_tb(5));
 			break;
 		}
 	} while(1);
@@ -234,5 +245,6 @@ c_main(void *fdt)
 	printk("FDT    = %p\n", fdt);
 
 	cpu_init(fdt);
+
 	menu(fdt);
 }

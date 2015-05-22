@@ -39,13 +39,13 @@ isync(void)
 	asm volatile ("isync" : : : "memory");
 }
 
-
-#define REG_READ_FN(reg)			\
-	static inline uint64_t			\
-	get_##reg(void)				\
-	{					\
-		uint64_t reg = 0;				\
-		asm volatile("mfspr %0, " S(SPRN_##reg) : "=r" (reg));	\
+#define REG_READ_FN(reg)						\
+	static inline uint64_t						\
+	get_##reg(void)							\
+	{								\
+		uint64_t reg = 0;					\
+		asm volatile("mfspr %0, " S(SPRN_##reg)			\
+			     : "=r" (reg) :: "memory");			\
 		return reg;						\
 	}								\
 
@@ -53,7 +53,8 @@ isync(void)
 	static inline void						\
 	set_##reg(uint64_t reg)						\
 	{								\
-		asm volatile("mtspr "S(SPRN_##reg)", %0" :: "r" (reg));	\
+		asm volatile("mtspr "S(SPRN_##reg)", %0"		\
+			     :: "r" (reg) : "memory");			\
 	}								\
 
 REG_READ_FN(HRMOR)
@@ -66,5 +67,37 @@ REG_READ_FN(HSRR0)
 REG_READ_FN(HSRR1)
 REG_WRITE_FN(HSRR0)
 REG_WRITE_FN(HSRR1)
+
+
+static inline uint64_t
+mftb(void)
+{
+	uint64_t tb;
+	asm volatile("mftb %0" : "=r"(tb) : : "memory");
+	return tb;
+}
+
+
+static inline void smt_low(void)        { asm volatile("or 1,1,1");     }
+static inline void smt_medium(void)     { asm volatile("or 2,2,2");     }
+static inline void smt_high(void)       { asm volatile("or 3,3,3");     }
+static inline void smt_medium_high(void){ asm volatile("or 5,5,5");     }
+static inline void smt_medium_low(void) { asm volatile("or 6,6,6");     }
+static inline void smt_extra_high(void) { asm volatile("or 7,7,7");     }
+static inline void smt_very_low(void)   { asm volatile("or 31,31,31");  }
+
+
+static inline __nomcount void
+cpu_relax(void)
+{
+	/* Relax a bit to give sibling threads some breathing space */
+	smt_low();
+	smt_very_low();
+	asm volatile("nop; nop; nop; nop\n");
+	asm volatile("nop; nop; nop; nop\n");
+	asm volatile("nop; nop; nop; nop\n");
+	asm volatile("nop; nop; nop; nop\n");
+	smt_medium();
+}
 
 #endif /* PPC_H */
