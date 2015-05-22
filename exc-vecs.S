@@ -23,6 +23,10 @@
 #include <opal.h>
 #include <kpcr.h>
 
+/*
+ * We enter here in HV mode. KPCR is in HSPRG0, while
+ * HSPRG1 is scratch.
+ */
 #define DEF_EXC(name, where)			\
 	.org exc_base + EXC_##name;		\
 	.globl exc_##name;			\
@@ -168,10 +172,12 @@ exc_cont:
 	subi	r1, r1, STACKFRAMEMIN
 	/*
 	 * Store updated recoverable exception stack
-	 * and jump to handler.
+	 * and jump to handler. This is an indirect jump
+	 * because our example is linked at some address
+	 * other than 0, while the vectors have to be at 0.
 	 */
 	std	r1, KPCR(rec_sp)
-	ld	r0, KPCR(exc_handler)
+	LOAD_ADDR(r0, exc_handler)
 	mtlr	r0
 	blr
 .globl exc_end

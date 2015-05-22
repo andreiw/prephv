@@ -86,7 +86,6 @@ _GLOBAL(_start)
 	 * to handle any exceptions.
 	 */
 	LOAD_IMM64(r13, kpcr)
-	mtspr	SPRN_HSPRG0, r13
 	std	r28, KPCR(opal_base)
 	std	r29, KPCR(opal_entry)
 	std	r2, KPCR(toc)

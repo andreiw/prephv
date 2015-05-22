@@ -100,8 +100,6 @@ exc_init(void)
 	kpcr_get()->rec_sp = (uint64_t) &_rec_stack_top;
 	printk("Recoverable exception stack top @ 0x%x\n",
 	       kpcr_get()->rec_sp);
-	kpcr_get()->exc_handler = (uint64_t) exc_handler;
-	printk("Exception handler @ 0x%x\n", kpcr_get()->exc_handler);
 
 	/*
 	 * Copy vectors down.
@@ -109,6 +107,12 @@ exc_init(void)
 	memcpy((void *) 0, &exc_base,
 	       (uint64_t) &exc_end - (uint64_t) &exc_base);
 	lwsync();
+
+	/*
+	 * Vectors expect HSPRG0 to contain the pointer to KPCR,
+	 * HSPRG1 is scratch.
+	 */
+	set_HSPRG0((uint64_t) kpcr_get());
 
 	/*
 	 * Context is now recoverable.

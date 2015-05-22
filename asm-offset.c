@@ -39,7 +39,6 @@ unused(void)
 	OFFSET(kpcr_slb_size, kpcr_s, slb_size);
 	OFFSET(kpcr_unrec_sp, kpcr_s, unrec_sp);
 	OFFSET(kpcr_rec_sp, kpcr_s, rec_sp);
-	OFFSET(kpcr_exc_handler, kpcr_s, exc_handler);
 
 	/* Exception frame stuff. */
 	DEFINE(eframe_sizeof, sizeof(eframe_t));

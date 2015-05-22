@@ -213,7 +213,7 @@ menu(void *fdt)
 			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed));
 			break;
 		case 'n':
-			printk("Testing  nested exception handling...\n");
+			printk("Testing nested exception handling...\n");
 			printk("sc(dead) => 0x%x\n", test_syscall(0xdead));
 			break;
 		case 'd':
