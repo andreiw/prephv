@@ -43,13 +43,13 @@ exc_handler(eframe_t *frame)
 	}
 
 	if (frame->vec == EXC_DEC) {
-		set_DEC(0x7fffffff);
+		set_DEC(DEC_DISABLE);
 		printk("decrementer!\n");
 		exc_rfi(frame);
 	}
 
 	if (frame->vec == EXC_HDEC) {
-		set_HDEC(0x7fffffff);
+		set_HDEC(DEC_DISABLE);
 		printk("hypervisor decrementer!\n");
 		exc_rfi(frame);
 	}
