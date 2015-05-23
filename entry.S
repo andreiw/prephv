@@ -129,7 +129,6 @@ _GLOBAL(mambo_write)
 	li	r0, token;				\
 	mflr	r12;					\
 	std	r12,STK_LR(r1);				\
-	ld	r2, KPCR(toc);				\
 	LOAD_ADDR(r12, opal_return);			\
 	mtlr	r12;					\
 	/*
