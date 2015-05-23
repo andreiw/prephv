@@ -20,7 +20,8 @@ What you get:
 - FDT parsing, dumping FDT
 - Taking and returning from exceptions, handling
   unrecoverable/nested exceptions.
-- Timebase (i.e. the "timestamp counter")
+- Timebase (i.e. the "timestamp counter"), decrementer
+  and hypervisor decrementer manipulation.
 
 There's some ongoing work on setting up the MMU in 1:1 mode. Come back soon.
 Today there's just the code to initialize the SLB with an identity EA->VA
@@ -73,13 +74,17 @@ You're looking for output like -
 19299231: (19296379): Exception handler @ 0x20015364
 
 19357385: (19353921): Pick your poison:
-19368290: (19364826): Choices:
-19373548: (19370084):    (d) 5s delay
-19382873: (19379409):    (e) test exception
-19395684: (19392220):    (n) test nested exception
-19412562: (19409098):    (f) dump FDT
-19421887: (19418423):    (s) dump SLB
-19431212: (19427748):    (q) poweroff
+20619415: (20616255): Choices:
+20624691: (20621531):    (d) 5s delay
+20634048: (20630888):    (e) test exception
+20646903: (20643743):    (n) test nested exception
+20663839: (20660679):    (f) dump FDT
+20673196: (20670036):    (s) dump SLB
+20682553: (20679393):    (I) enable ints
+20693659: (20690499):    (i) disable ints
+20705348: (20702188):    (H) enable HV dec
+20717620: (20714460):    (h) disable HV dec
+20730475: (20727315):    (q) poweroff
 
 You can interact with this, (q) will shut down the sim.
 

@@ -195,6 +195,10 @@ menu(void *fdt)
 			       "   (n) test nested exception\n"
 			       "   (f) dump FDT\n"
 			       "   (s) dump SLB\n"
+			       "   (I) enable ints\n"
+			       "   (i) disable ints\n"
+			       "   (H) enable HV dec\n"
+			       "   (h) disable HV dec\n"
 			       "   (q) poweroff\n");
 		}
 
@@ -218,6 +222,18 @@ menu(void *fdt)
 			break;
 		case 'd':
 			time_delay(secs_to_tb(5));
+			break;
+		case 'I':
+			exc_enable_ee();
+			break;
+		case 'i':
+			exc_disable_ee();
+			break;
+		case 'H':
+			exc_enable_hdec();
+			break;
+		case 'h':
+			exc_disable_hdec();
 			break;
 		}
 	} while(1);

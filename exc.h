@@ -66,5 +66,9 @@ typedef struct eframe_s
 
 void exc_init(void);
 void exc_rfi(eframe_t *frame);
+void exc_disable_ee(void);
+void exc_enable_ee(void);
+void exc_enable_hdec(void);
+void exc_disable_hdec(void);
 
 #endif /* EXC_H */

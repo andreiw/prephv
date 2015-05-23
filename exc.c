@@ -42,6 +42,18 @@ exc_handler(eframe_t *frame)
 		goto bad;
 	}
 
+	if (frame->vec == EXC_DEC) {
+		set_DEC(0x7fffffff);
+		printk("decrementer!\n");
+		exc_rfi(frame);
+	}
+
+	if (frame->vec == EXC_HDEC) {
+		set_HDEC(0x7fffffff);
+		printk("hypervisor decrementer!\n");
+		exc_rfi(frame);
+	}
+
 	if (frame->vec == EXC_SC) {
 		if (frame->r3 == 0xdead) {
 			printk("Triggering nested exception crash\n");
@@ -74,9 +86,36 @@ bad:
 
 
 void
+exc_disable_ee(void)
+{
+	mtmsrd(mfmsr() & ~MSR_EE, 1);
+}
+
+
+void
+exc_enable_ee(void)
+{
+	mtmsrd(mfmsr() | MSR_EE, 1);
+}
+
+
+void
+exc_enable_hdec(void)
+{
+	set_LPCR(get_LPCR() | LPCR_HDICE);
+}
+
+
+void
+exc_disable_hdec(void)
+{
+	set_LPCR(get_LPCR() & ~LPCR_HDICE);
+}
+
+
+void
 exc_init(void)
 {
-
 	/*
 	 * MSR.ILE controls supervisor exception endianness. OPAL
 	 * takes care of setting the hypervisor exception endianness
@@ -90,6 +129,14 @@ exc_init(void)
 		uint64_t hid0 = get_HID0();
 		set_HID0(hid0 | HID0_HILE);
 	}
+
+	/*
+	 * Force external interrupts to HV mode.
+	 * Non-HV exceptions are LE (don't really need this here, but
+	 * if there's ever user-space code doing an sc...).
+	 * HV decrementer enabled.
+	 */
+	set_LPCR((get_LPCR() & ~LPCR_LPES) | LPCR_ILE);
 
 	/*
 	 * Exception stack.
@@ -118,5 +165,4 @@ exc_init(void)
 	 * Context is now recoverable.
 	 */
 	mtmsrd(MSR_RI, 1);
-
 }

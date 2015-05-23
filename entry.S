@@ -137,9 +137,10 @@ _GLOBAL(mambo_write)
 	 * will return from interrupt into big-endian	\
 	 * mode running the OPAL entry.			\
 	 */						\
-	mfmsr	r12;					\
+	mfmsr	r14;					\
 	li	r11, MSR_LE;				\
-	andc	r12, r12, r11;				\
+	ori	r11, r11, MSR_EE;			\
+	andc	r12, r14, r11;				\
 	mtspr	SPRN_HSRR1, r12;			\
 	ld	r2, KPCR(opal_base);			\
 	ld	r12, KPCR(opal_entry);			\
@@ -150,9 +151,13 @@ _GLOBAL(mambo_write)
 	 */						\
 	hrfid
 _GLOBAL(opal_return)
+	/*
+	 * Enter here in BE with r13 = KPCR, r14 = old MSR.
+	 */
 	FIXUP_ENDIAN
 	ld	r2, KPCR(toc)
 	ld	r12,STK_LR(r1)
+	mtmsr	r14
 	mtlr	r12
 	blr
 
