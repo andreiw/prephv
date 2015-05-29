@@ -26,6 +26,26 @@
 #include <defs.h>
 
 
+static inline void eieio(void)
+{
+	asm volatile("eieio" : : : "memory");
+}
+
+
+static inline void
+ptesync(void)
+{
+	asm volatile ("ptesync" : : : "memory");
+}
+
+
+static inline void
+tlbsync(void)
+{
+	asm volatile ("tlbsync" : : : "memory");
+}
+
+
 static inline void
 lwsync(void)
 {
@@ -66,6 +86,10 @@ REG_READ_FN(DEC)
 REG_WRITE_FN(DEC)
 REG_READ_FN(HDEC)
 REG_WRITE_FN(HDEC)
+REG_READ_FN(SDR1)
+REG_WRITE_FN(SDR1)
+REG_READ_FN(DAR)
+REG_READ_FN(DSISR)
 
 
 static inline uint64_t
@@ -122,5 +146,4 @@ cpu_relax(void)
 	asm volatile("nop; nop; nop; nop\n");
 	smt_medium();
 }
-
 #endif /* PPC_H */

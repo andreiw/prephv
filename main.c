@@ -22,23 +22,20 @@
 
 #include <types.h>
 #include <endian.h>
+#include <linkage.h>
 #include <console.h>
 #include <kpcr.h>
 #include <opal.h>
 #include <libfdt.h>
 #include <libfdt_internal.h>
-#include <slb.h>
 #include <exc.h>
 #include <ppc.h>
 #include <time.h>
+#include <mmu.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
 
-extern void * _start;
-extern void * _bss_start;
-extern void * _stack_start;
-extern void * _end;
 kpcr_t kpcr;
 
 
@@ -114,8 +111,7 @@ cpu_init(void *fdt)
 	kpcr_get()->tb_freq = tb_freq;
 
 	exc_init();
-	slb_init();
-	// tlb_init();
+	mmu_init((uint64_t) &_end - (uint64_t) &_start);
 }
 
 
@@ -149,11 +145,6 @@ dump_nodes(void *fdt)
 	offset = 0;
 	depth = 0;
 	do {
-		offset = fdt_next_node(fdt, offset, &depth);
-		if (offset < 0) {
-			break;
-		}
-
 		n = fdt_get_name(fdt, offset, NULL);
 		for  (i = 0; i < depth * 4; i++) {
 			printk(" ");
@@ -164,6 +155,11 @@ dump_nodes(void *fdt)
 		}
 
 		dump_props(fdt, offset, depth * 4 + 2);
+
+		offset = fdt_next_node(fdt, offset, &depth);
+		if (offset < 0) {
+			break;
+		}
 	} while(1);
 }
 
@@ -189,23 +185,28 @@ menu(void *fdt)
 	printk("\nPick your poison:\n");
 	do {
 		if (c != NO_CHAR) {
-			printk("Choices:\n"
+			printk("Choices: (MMU = %s):\n"
 			       "   (d) 5s delay\n"
 			       "   (e) test exception\n"
 			       "   (n) test nested exception\n"
 			       "   (f) dump FDT\n"
-			       "   (s) dump SLB\n"
+			       "   (M) enable MMU\n"
+			       "   (m) disable MMU\n"
 			       "   (I) enable ints\n"
 			       "   (i) disable ints\n"
 			       "   (H) enable HV dec\n"
 			       "   (h) disable HV dec\n"
-			       "   (q) poweroff\n");
+			       "   (q) poweroff\n",
+			       mmu_enabled() ? "enabled" : "disabled");
 		}
 
 		c = getchar();
 		switch (c) {
-		case 's':
-			slb_dump();
+		case 'M':
+			mmu_enable();
+			break;
+		case 'm':
+			mmu_disable();
 			break;
 		case 'f':
 			dump_nodes(fdt);

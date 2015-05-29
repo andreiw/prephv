@@ -1,5 +1,5 @@
 /*
- * SLB stuff.
+ * SLB/HTAB management.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,10 +18,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef SLB_H
-#define SLB_H
+#ifndef MMU_H
+#define MMU_H
 
-void slb_dump(void);
-void slb_init(void);
+int mmu_init(uint64_t ram_size);
+void mmu_enable(void);
+void mmu_disable(void);
+int mmu_enabled(void);
 
-#endif /* SLB_H */
+#endif /* MMU_H */

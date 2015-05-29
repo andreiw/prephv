@@ -20,16 +20,12 @@
 
 #include <types.h>
 #include <opal.h>
+#include <linkage.h>
 #include <console.h>
 #include <ppc.h>
 #include <string.h>
 #include <kpcr.h>
 #include <exc.h>
-
-extern void *exc_base;
-extern void *exc_end;
-extern void *_unrec_stack_top;
-extern void *_rec_stack_top;
 
 
 void
@@ -40,6 +36,25 @@ exc_handler(eframe_t *frame)
 		 * Unrecoverable, possibly nested exception.
 		 */
 		goto bad;
+	}
+
+	if (frame->vec == EXC_ISEG ||
+	    frame->vec == EXC_ISI) {
+		printk("Instruction MMU fault at 0x%x, trying without MMU\n",
+		       frame->hsrr0);
+		frame->hsrr1 &= ~(MSR_IR | MSR_DR);
+		exc_rfi(frame);
+	}
+
+	if (frame->vec == EXC_DSEG ||
+	    frame->vec == EXC_DSI) {
+		printk("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x),"
+		       " trying without MMU\n",
+		       frame->hsrr0,
+		       get_DAR(),
+		       get_DSISR());
+		frame->hsrr1 &= ~(MSR_IR | MSR_DR);
+		exc_rfi(frame);
 	}
 
 	if (frame->vec == EXC_DEC) {

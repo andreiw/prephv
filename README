@@ -22,12 +22,12 @@ What you get:
   unrecoverable/nested exceptions.
 - Timebase (i.e. the "timestamp counter"), decrementer
   and hypervisor decrementer manipulation.
-
-There's some ongoing work on setting up the MMU in 1:1 mode. Come back soon.
-Today there's just the code to initialize the SLB with an identity EA->VA
-mapping for the first 1TB. No HTAB code yet (damn paternity leave ending!),
-but at some point you'll be able to interactively turn it on and off
-and see a difference :-D.
+- Very basic MMU setup (1:1 EA->VA mapping using a 1TB
+  SLB entry, and 1:1 VA->RA mapping using 4K pages
+  for memory between &_start and &_end. Not SMP safe.
+  Note that since only a few areas are mapped, attempt
+  to access an unmapped area with the MMU on will force
+  the MMU off (see exc.c).
 
 Hopefully the code is clear enough and not too messy. I'm not trying hard
 enough ;-(.
@@ -55,38 +55,77 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 
 You're looking for output like -
 ...
-19028625: (19028623): Hello Mambo!
-19029388: (19029386): Hello OPAL!
-19029996: (19029994): _start = 0x20010000
-19042518: (19042212): _bss   = 0x20016420
-19055040: (19054430): _stack = 0x20017000
-19067562: (19066648): _end   = 0x20019000
-19080093: (19078875): KPCR   = 0x20016420
-19092625: (19091103): OPAL   = 0x30000000
-19105146: (19103320): FDT    = 0x30203458
-19173938: (19171808): SLB size = 0x20
-19216485: (19214279): TB freq = 512000000
-19232692: (19230144): [37,3] OPAL: Trying a CPU re-init with flags: 0x2
-19241097: (19238549): [37,3] SLW: Not found on chip 0
-19244797: (19242249): [37,3] ELOG: Error getting buffer to log error
-19245508: (19242960): OPAL claims no HILE supported, pretend to know better...
-19279135: (19276587): Exception stack top @ 0x20018FE0
-19299231: (19296379): Exception handler @ 0x20015364
+20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
+20296330: (20296328): Hello Mambo!
+20297095: (20297093): Hello OPAL!
+20297706: (20297704): _start = 0x20010000
+20310291: (20309985): _bss   = 0x20017628
+20322876: (20322266): _stack = 0x20018000
+20335461: (20334547): _end   = 0x2001B000
+20348055: (20346837): KPCR   = 0x20017648
+20360650: (20359128): OPAL   = 0x30000000
+20373234: (20371408): FDT    = 0x303039F0
+20442089: (20439959): SLB size = 0x20
+20484687: (20482481): TB freq = 512000000
+20501494: (20498946): [20497021000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20510436: (20507888): [20502734000,3] SLW: Not found on chip 0
+20514673: (20512125): [20510689000,3] ELOG: Error getting buffer to log error
+20515387: (20512839): OPAL claims no HILE supported, pretend to know better...
+20549204: (20546656): Unrecoverable exception stack top @ 0x20019EC8
+20577591: (20574739): Recoverable exception stack top @ 0x2001B000
+20607679: (20604521): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+20773861: (20769941): SLB entries:
+20782057: (20778099): 1: E 0x8000000 V 0x4000000000000400
+20805685: (20800853): EA 0x20010000 -> hash 0x20010 -> pteg 0x80 = RA 0x20010000
+20842311: (20836603): EA 0x20011000 -> hash 0x20011 -> pteg 0x88 = RA 0x20011000
+20878937: (20872353): EA 0x20012000 -> hash 0x20012 -> pteg 0x90 = RA 0x20012000
+20915563: (20908103): EA 0x20013000 -> hash 0x20013 -> pteg 0x98 = RA 0x20013000
+20952189: (20943853): EA 0x20014000 -> hash 0x20014 -> pteg 0xA0 = RA 0x20014000
+20988815: (20979603): EA 0x20015000 -> hash 0x20015 -> pteg 0xA8 = RA 0x20015000
+21025441: (21015353): EA 0x20016000 -> hash 0x20016 -> pteg 0xB0 = RA 0x20016000
+21062067: (21051103): EA 0x20017000 -> hash 0x20017 -> pteg 0xB8 = RA 0x20017000
+21098693: (21086853): EA 0x20018000 -> hash 0x20018 -> pteg 0xC0 = RA 0x20018000
+21135319: (21122603): EA 0x20019000 -> hash 0x20019 -> pteg 0xC8 = RA 0x20019000
+21171945: (21158353): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
 
-19357385: (19353921): Pick your poison:
-20619415: (20616255): Choices:
-20624691: (20621531):    (d) 5s delay
-20634048: (20630888):    (e) test exception
-20646903: (20643743):    (n) test nested exception
-20663839: (20660679):    (f) dump FDT
-20673196: (20670036):    (s) dump SLB
-20682553: (20679393):    (I) enable ints
-20693659: (20690499):    (i) disable ints
-20705348: (20702188):    (H) enable HV dec
-20717620: (20714460):    (h) disable HV dec
-20730475: (20727315):    (q) poweroff
+21209691: (21195223): Pick your poison:
+21220690: (21206222): Choices: (MMU = disabled):
+21236538: (21222070):    (d) 5s delay
+21245911: (21231443):    (e) test exception
+21258788: (21244320):    (n) test nested exception
+21275753: (21261285):    (f) dump FDT
+21285126: (21270658):    (M) enable MMU
+21295667: (21281199):    (m) disable MMU
+21306792: (21292324):    (I) enable ints
+21317917: (21303449):    (i) disable ints
+21329626: (21315158):    (H) enable HV dec
+21341919: (21327451):    (h) disable HV dec
+21354796: (21340328):    (q) poweroff
 
-You can interact with this, (q) will shut down the sim.
+You can interact with this:
+(d) poll the timebase registers until 5s of real time pass.
+(e) tests triggering a system call with parameter 0xfeed. The system
+    call handler will return back parameter << 16 | 0xface, i.e. 0xfeedface.
+(n) tests triggering an exception from an exception by triggering
+    a system call with parameter 0xdead. The exc.c logic keys off the parameter
+    to trigger another exception, expectedly crashing the system, thus testing
+    that the exc.c code can distinguish between recoverable and non-recoverable
+    exceptions and handle them appropriately.
+(f) dumps the FDT passed up by skiboot. I don't try very hard. This code needs
+    improvement and its just glue around parts of libfdt.
+(M) enables running with MSR.IR and MSR.DR. The page table and SLB are setup at
+    boot to map 1:1 (EA->RA) exactly the memory between &_start and &_end. Any
+    DSI/ISI turns off the MMU.
+(m) disables MSR.IR and MSR.DR, disabling MMU.
+(I) enables external interrupts (MSR.EE). You will start seeing decrementer
+    exceptions.
+(i) disables external interrupts. You will no longer see any decrementer
+    or HV decrementer exceptions.
+(H) enables HV decrementer. If exernal interrupts are on, you will start
+    seeting hypervisor decrementer exceptions.
+(h) disable HV decrementer. You will no longer see any HV decrementer
+    exceptions.
+(q) will shut down the sim using the attn instruction.
 
 You should be able to run ppc64le_hello on a real Power8 machine via skiboot,
 but you will need to comment out the call to mambo_write, as that is a

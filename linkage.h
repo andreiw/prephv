@@ -1,5 +1,5 @@
 /*
- * Basic types.
+ * Symbbols defined in ld.script.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,18 +18,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef LINKAGE_H
+#define LINKAGE_H
 
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long uint64_t;
-typedef uint64_t uintptr_t;
-typedef uint64_t __be64;
+extern void * _start;
+extern void * _end;
+extern void * _bss_start;
+extern void * _stack_start;
+extern void *exc_base;
+extern void *exc_end;
+extern void *_unrec_stack_top;
+extern void *_rec_stack_top;
 
-typedef uint64_t vaddr_t;
-typedef uint64_t offset_t;
-typedef uint64_t length_t;
-
-#endif /* TYPES_H */
+#endif /* LINKAGE_H */

@@ -139,6 +139,8 @@ _GLOBAL(mambo_write)
 	mfmsr	r14;					\
 	li	r11, MSR_LE;				\
 	ori	r11, r11, MSR_EE;			\
+	ori	r11, r11, MSR_IR;			\
+	ori	r11, r11, MSR_DR;			\
 	andc	r12, r14, r11;				\
 	mtspr	SPRN_HSRR1, r12;			\
 	ld	r2, KPCR(opal_base);			\

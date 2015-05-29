@@ -99,6 +99,9 @@
 #define SPRN_HSPRG1     0x131           /* Hypervisor Scratch 1 */
 #define SPRN_HDEC       0x136           /* Hypervisor decrementer */
 #define SPRN_DEC        0x16            /* Decrementer. */
+#define SPRN_SDR1       0x019           /* HTAB base. */
+#define SPRN_DAR        0x013           /* Data Adress Register. */
+#define SPRN_DSISR      0x012           /* Data Storage Interrupt Status */
 
 #define LPCR_ILE_LG     (63 - 38)             /* Interrupt Little Endian */
 #define LPCR_ILE        __MASK(LPCR_ILE_LG)
@@ -118,6 +121,9 @@
  */
 #define DEC_DISABLE     0x7fffffff
 
+/*
+ * Exception offsets.
+ */
 #define EXC_START       0x0
 #define EXC_RESET       0x100
 #define EXC_MC          0x200
@@ -149,5 +155,88 @@
 #define EXC_FAC         0xF60
 #define EXC_HFAC        0xF80
 #define EXC_TABLE_END   0xFFF
+
+/*
+ * GNU tools somehow don't know about the 2-register tlbie.
+ *
+ * This is awful.
+ */
+#define PPC_INST_TLBIE 0x7c000264
+#define ___PPC_RS(s) (((s) & 0x1f) << 21)
+#define ___PPC_RB(b) (((b) & 0x1f) << 11)
+#define PPC_TLBIE(lp,a) S(.long PPC_INST_TLBIE |	\
+                          ___PPC_RB(a) | ___PPC_RS(lp))
+#define TLBIE_RB_1TB (1 << 9)
+
+/*
+ * Segmentation defines. We only care about 1T segments.
+ */
+
+/* 1T segments */
+#define SID_SHIFT_1T            40
+#define ESID_MASK_1T            0xffffff0000000000UL
+
+/* Bits in the SLB ESID word */
+#define SLB_ESID_V              (0x0000000008000000) /* valid */
+
+/* Bits in the SLB VSID word */
+#define SLB_VSID_SHIFT_1T       24
+#define SLB_VSID_B_1T           (0x4000000000000000)
+#define SLB_VSID_KP             (0x0000000000000400)
+
+/*
+ * HTAB support.
+ *
+ * See 5.7.7.2 PowerISA v2.07 p901,
+ *     5.7.7.4 PowerISA v2.07 p904.
+ */
+#define PTEG_SIZE      128
+#define PTES_PER_GROUP 8
+#define MIN_PTEGS  (1UL << 11)
+#define MAX_PTEGS  (1UL << (11 + 28))
+#define HTAB_ALIGN (MIN_PTEGS * PTEG_SIZE)
+
+/*
+ * Only support 4K pages.
+ */
+#define PAGE_SHIFT     12
+#define PAGE_SIZE      (1 << PAGE_SHIFT)
+
+/*
+ * PTE bits.
+ */
+#define PTE_V_1TB_SEG          (0x4000000000000000)
+#define PTE_V_VRMA_MASK        (0x4001ffffff000000)
+#define PTE_V_SSIZE_SHIFT      62
+#define PTE_V_AVPN_SHIFT       7
+#define PTE_V_AVPN             (0x3fffffffffffff80)
+#define PTE_V_AVPN_VAL(x)      (((x) & PTE_V_AVPN) >> PTE_V_AVPN_SHIFT)
+#define PTE_V_COMPARE(x,y)     (!(((x) ^ (y)) & 0xffffffffffffff80UL))
+#define PTE_V_LARGE            (0x0000000000000004)
+#define PTE_V_SECONDARY        (0x0000000000000002)
+#define PTE_V_VALID            (0x0000000000000001)
+
+#define PTE_R_PP0              (0x8000000000000000)
+#define PTE_R_TS               (0x4000000000000000)
+#define PTE_R_KEY_HI           (0x3000000000000000)
+#define PTE_R_RPN_SHIFT        12
+#define PTE_R_RPN              (0x0ffffffffffff000)
+#define PTE_R_PP               (0x0000000000000003)
+#define PTE_R_N                (0x0000000000000004)
+#define PTE_R_G                (0x0000000000000008)
+#define PTE_R_M                (0x0000000000000010)
+#define PTE_R_I                (0x0000000000000020)
+#define PTE_R_W                (0x0000000000000040)
+#define PTE_R_WIMG             (0x0000000000000078)
+#define PTE_R_C                (0x0000000000000080)
+#define PTE_R_R                (0x0000000000000100)
+#define PTE_R_KEY_LO           (0x0000000000000e00)
+
+/* Protection balues for PP (assumes Ks=0, Kp=1) */
+#define PP_RWXX 0                 /* Supervisor read/write, User none */
+#define PP_RWRX 1                 /* Supervisor read/write, User read */
+#define PP_RWRW 2                 /* Supervisor read/write, User read/write */
+#define PP_RXRX 3                 /* Supervisor read,       User read */
+#define PP_RXXX (PTE_R_PP0 | 2)   /* Supervisor read, user none */
 
 #endif /* PPC_REGS_H */

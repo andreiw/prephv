@@ -21,12 +21,27 @@
 #ifndef DEFS_H
 #define DEFS_H
 
+#include <types.h>
+
+#define min(x,y) ({				\
+			typeof(x) _x = (x);	\
+			typeof(y) _y = (y);	\
+			(void) (&_x == &_y);	\
+			_x < _y ? _x : _y; })
+
+#define max(x,y) ({				\
+			typeof(x) _x = (x);	\
+			typeof(y) _y = (y);	\
+			(void) (&_x == &_y);	\
+			_x > _y ? _x : _y; })
+
 #define NULL ((void *) 0)
+#define BITS_PER_LONG 64
 #define ALIGN_UP(addr, align) (((addr) + (align) - 1) & (~((align) - 1)))
 #define PALIGN_UP(p, align) ((typeof(p))(((uintptr_t)(p) + (align) - 1) & (~((align) - 1))))
 #define ALIGN(addr, align) (((addr) - 1) & (~((align) - 1)))
-#define S(x) _S(x)
-#define _S(x) #x
+#define S(...) _S(__VA_ARGS__)
+#define _S(...) #__VA_ARGS__
 
 #define __packed                __attribute__((packed))
 #define __align(x)              __attribute__((__aligned__(x)))
@@ -39,4 +54,17 @@
 #define __nomcount              __attribute__((no_instrument_function))
 #define __alwaysinline          __attribute__((always_inline))
 
+
+/*
+ * Return the zero-based bit position (LE, not IBM bit numbering) of
+ * the most significant 1-bit in a double word.
+ */
+static __inline__ __attribute__((const))
+int __ilog2(uint64_t x)
+{
+	int lz;
+
+	asm ("cntlzd %0,%1" : "=r" (lz) : "r" (x));
+	return BITS_PER_LONG - 1 - lz;
+}
 #endif /* DEFS_H */
