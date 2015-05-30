@@ -122,7 +122,8 @@ _GLOBAL(mambo_write)
 
 /*
  * Perform a call to the OpenPower Abstraction Layer
- * from little-endian real-mode. virt-mode unsupported.
+ * from little-endian mode (virt or real). MMU has
+ * to be off, as must external interrupts.
  */
 #define OPAL_CALL(name, token)				\
 	_GLOBAL(name);					\
@@ -137,6 +138,7 @@ _GLOBAL(mambo_write)
 	 * mode running the OPAL entry.			\
 	 */						\
 	mfmsr	r14;					\
+	mfcr	r15;					\
 	li	r11, MSR_LE;				\
 	ori	r11, r11, MSR_EE;			\
 	ori	r11, r11, MSR_IR;			\
@@ -153,11 +155,13 @@ _GLOBAL(mambo_write)
 	hrfid
 _GLOBAL(opal_return)
 	/*
-	 * Enter here in BE with r13 = KPCR, r14 = old MSR.
+	 * Enter here in BE with r13 = KPCR, r14 = old MSR,
+	 * r15 saved CR.
 	 */
 	FIXUP_ENDIAN
 	ld	r2, KPCR(toc)
 	ld	r12,STK_LR(r1)
+	mtcr	r15
 	mtmsr	r14
 	mtlr	r12
 	blr
