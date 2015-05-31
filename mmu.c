@@ -40,8 +40,6 @@
  */
 #define VPN_SHIFT 12
 typedef uint64_t vpn_t;
-typedef uint64_t ra_t;
-typedef uint64_t ea_t;
 
 /*
  * ESID(0) => VSID(0).
@@ -207,10 +205,56 @@ tlbie(vpn_t vpn)
 
 
 int
-mmu_map(ea_t ea, ra_t ra)
+mmu_unmap(ea_t ea)
 {
 	int i;
-	uint64_t rflags = PP_RWXX | PTE_R_M;
+	vpn_t vpn = EA_TO_VPN(ea);
+	uint64_t hash = vpn_hash(vpn);
+	uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
+	pte_t *pte = ((pte_t *) htab) + pteg;
+
+	/*
+	 * We don't do secondary PTEGs and we're not SMP safe:
+	 * real OSes use one of the software bits inside the V
+	 * part of pte_t as a spinlock.
+	 */
+	printk("EA 0x%x -> hash 0x%x -> pteg 0x%x = unmap\n",
+	       ea, hash, pteg);
+	for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
+		if ((be64_to_cpu(pte->v) & PTE_V_VALID) == 0) {
+			/*
+
+			 * Not used, go to next slot.
+			 */
+			continue;
+		}
+
+		if (PTE_V_COMPARE(be64_to_cpu(pte->v),
+				  avpn_encode(vpn)) == 0) {
+			break;
+		}
+	}
+
+	if (i == PTES_PER_GROUP) {
+		printk("EA 0x%x not mapped\n", ea);
+		return -1;
+	}
+
+	pte->v = be64_to_cpu(0);
+	ptesync();
+	tlbie(vpn);
+
+	return 0;
+}
+
+
+int
+mmu_map(ea_t ea, ra_t ra, prot_t pp)
+{
+	int i;
+	uint64_t v;
+	uint64_t r;
+	uint64_t rflags = pp | PTE_R_M;
 	uint64_t vflags = PTE_V_1TB_SEG | PTE_R_M | PTE_V_VALID;
 	uint64_t hash = vpn_hash(EA_TO_VPN(ea));
 	uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
@@ -224,9 +268,6 @@ mmu_map(ea_t ea, ra_t ra)
 	printk("EA 0x%x -> hash 0x%x -> pteg 0x%x = RA 0x%x\n",
 	       ea, hash, pteg, ra);
 	for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
-		uint64_t v;
-		uint64_t r;
-
 		if ((be64_to_cpu(pte->v) & PTE_V_VALID) != 0) {
 			/*
 			 * Busy, go to next slot.
@@ -234,59 +275,80 @@ mmu_map(ea_t ea, ra_t ra)
 			continue;
 		}
 
-		if (i == PTES_PER_GROUP) {
-			printk("Couldn't map EA 0x%x\n", ea);
-			return -1;
-		}
-
-		v = avpn_encode(EA_TO_VPN(ea)) | vflags;
-		r = rpn_encode(ra) | rflags;
-
-		/*
-		 * Unnecessary here (there were no other mappings),
-		 * but if we were recycling a slot, we'd:
-		 * - pte_t.v.PTE_V_VALID = 0
-		 * - ptesync
-		 * - tlbie(recycled VPN)
-		 */
-		tlbie(EA_TO_VPN(ea));
-
-		/*
-		 * See 5.7.3.5 PowerISA v2.07 p895.
-		 *
-		 * Implicit accesses to the Page Table during address
-		 * translation and in recording reference and change infor-
-		 * mation are performed as though the storage occupied
-		 * by the Page Table had the following storage control
-		 * attributes.
-		 * W - not Write Through Required
-		 * I - not Caching Inhibited
-		 * M - Memory Coherence Required
-		 * G - not Guarded
-		 * not SAO
-		 *
-		 *... this has the implication that there is no need
-		 * to dcbf the HTAB updates themselves. Note that
-		 * changes to W/I flags of a mapped page will require
-		 * cache maintenance. See 5.8.2.2 PowerISA v2.07 p915.
-		 *
-		 * For PTE update rules see 5.10.1 PowerISA v2.07 p935.
-		 */
-		pte->r = cpu_to_be64(r);
-		eieio();
-		pte->v = cpu_to_be64(v);
-		ptesync();
 		break;
 	}
+
+	if (i == PTES_PER_GROUP) {
+		printk("Couldn't map EA 0x%x\n", ea);
+		return -1;
+	}
+
+	v = avpn_encode(EA_TO_VPN(ea)) | vflags;
+	r = rpn_encode(ra) | rflags;
+
+	/*
+	 * Unnecessary here (there were no other mappings),
+	 * but if we were recycling a slot, we'd:
+	 * - pte_t.v.PTE_V_VALID = 0
+	 * - ptesync
+	 * - tlbie(recycled VPN)
+		 */
+	tlbie(EA_TO_VPN(ea));
+
+	/*
+	 * See 5.7.3.5 PowerISA v2.07 p895.
+	 *
+	 * Implicit accesses to the Page Table during address
+	 * translation and in recording reference and change infor-
+	 * mation are performed as though the storage occupied
+	 * by the Page Table had the following storage control
+	 * attributes.
+	 * W - not Write Through Required
+	 * I - not Caching Inhibited
+	 * M - Memory Coherence Required
+	 * G - not Guarded
+	 * not SAO
+	 *
+	 *... this has the implication that there is no need
+	 * to dcbf the HTAB updates themselves. Note that
+	 * changes to W/I flags of a mapped page will require
+	 * cache maintenance. See 5.8.2.2 PowerISA v2.07 p915.
+	 *
+	 * For PTE update rules see 5.10.1 PowerISA v2.07 p935.
+	 */
+	pte->r = cpu_to_be64(r);
+	eieio();
+	pte->v = cpu_to_be64(v);
+	ptesync();
 
 	return 0;
 }
 
 
 int
+mmu_map_range(ea_t ea_start,
+	      ea_t ea_end,
+	      ra_t ra_start,
+	      prot_t prot)
+{
+	int ret;
+	ea_t addr = ea_start;
+	ra_t ra = ra_start;
+
+	for (; addr < ea_end; addr += PAGE_SIZE, ra += PAGE_SIZE) {
+		ret = mmu_map(addr, ra, prot);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+int
 mmu_init(uint64_t ram_size)
 {
-	uint64_t addr;
+	int ret;
 	ptegs = pteg_count(ram_size);
 	htab_size = ptegs * PTEG_SIZE;
 	htab_hash_mask = ptegs - 1;
@@ -313,12 +375,23 @@ mmu_init(uint64_t ram_size)
 	slb_init();
 
 	/*
-	 * Only map the bare minimum.
+	 * Only map the bare minimum 1:1.
 	 */
-	for (addr = (uint64_t) &_start;
-	     addr < (uint64_t) &_end;
-	     addr += PAGE_SIZE) {
-		mmu_map(addr, addr);
+	ret = mmu_map_range((uint64_t) htab,
+			    ((uint64_t) htab) + htab_size,
+			    (uint64_t) htab,
+			    PP_RWXX);
+	if (ret != 0) {
+		printk("Couldn't map HTAB\n");
+		return ret;
+	}
+	ret = mmu_map_range((uint64_t) &_start,
+			    (uint64_t) &_end,
+			    (uint64_t) &_start,
+			    PP_RWXX);
+	if (ret != 0) {
+		printk("Couldn't map kernel binary\n");
+		return ret;
 	}
 
 	tlbsync();

@@ -57,50 +57,43 @@ You're looking for output like -
 ...
 20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
 20296330: (20296328): Hello Mambo!
-20297095: (20297093): Hello OPAL!
-20297706: (20297704): _start = 0x20010000
-20310291: (20309985): _bss   = 0x20017628
-20322876: (20322266): _stack = 0x20018000
-20335461: (20334547): _end   = 0x2001B000
-20348055: (20346837): KPCR   = 0x20017648
-20360650: (20359128): OPAL   = 0x30000000
-20373234: (20371408): FDT    = 0x303039F0
-20442089: (20439959): SLB size = 0x20
-20484687: (20482481): TB freq = 512000000
-20501494: (20498946): [20497021000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20510436: (20507888): [20502734000,3] SLW: Not found on chip 0
-20514673: (20512125): [20510689000,3] ELOG: Error getting buffer to log error
-20515387: (20512839): OPAL claims no HILE supported, pretend to know better...
-20549204: (20546656): Unrecoverable exception stack top @ 0x20019EC8
-20577591: (20574739): Recoverable exception stack top @ 0x2001B000
-20607679: (20604521): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
-20773861: (20769941): SLB entries:
-20782057: (20778099): 1: E 0x8000000 V 0x4000000000000400
-20805685: (20800853): EA 0x20010000 -> hash 0x20010 -> pteg 0x80 = RA 0x20010000
-20842311: (20836603): EA 0x20011000 -> hash 0x20011 -> pteg 0x88 = RA 0x20011000
-20878937: (20872353): EA 0x20012000 -> hash 0x20012 -> pteg 0x90 = RA 0x20012000
-20915563: (20908103): EA 0x20013000 -> hash 0x20013 -> pteg 0x98 = RA 0x20013000
-20952189: (20943853): EA 0x20014000 -> hash 0x20014 -> pteg 0xA0 = RA 0x20014000
-20988815: (20979603): EA 0x20015000 -> hash 0x20015 -> pteg 0xA8 = RA 0x20015000
-21025441: (21015353): EA 0x20016000 -> hash 0x20016 -> pteg 0xB0 = RA 0x20016000
-21062067: (21051103): EA 0x20017000 -> hash 0x20017 -> pteg 0xB8 = RA 0x20017000
-21098693: (21086853): EA 0x20018000 -> hash 0x20018 -> pteg 0xC0 = RA 0x20018000
-21135319: (21122603): EA 0x20019000 -> hash 0x20019 -> pteg 0xC8 = RA 0x20019000
-21171945: (21158353): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
+20297096: (20297094): Hello OPAL!
+20297709: (20297707): _start = 0x20010000
+20310336: (20310030): _bss   = 0x20017B28
+20322963: (20322353): _stack = 0x20018000
+20335590: (20334676): _end   = 0x2001B000
+20348226: (20347008): KPCR   = 0x20017B48
+20360863: (20359341): OPAL   = 0x30000000
+20373489: (20371663): FDT    = 0x303039F0
+20442386: (20440256): SLB size = 0x20
+20485018: (20482812): TB freq = 512000000
+20501867: (20499319): [20497394000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20510809: (20508261): [20503107000,3] SLW: Not found on chip 0
+20515046: (20512498): [20511062000,3] ELOG: Error getting buffer to log error
+20515762: (20513214): OPAL claims no HILE supported, pretend to know better...
+20549695: (20547147): Unrecoverable exception stack top @ 0x20019EC8
+20578178: (20575326): Recoverable exception stack top @ 0x2001B000
+20608358: (20605200): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+20774656: (20770736): SLB entries:
+20782880: (20778922): 1: E 0x8000000 V 0x4000000000000400
+20806614: (20801782): EA 0x20040000 -> hash 0x20040 -> pteg 0x200 = RA 0x20040000
+...
+23569587: (23497351): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
 
-21209691: (21195223): Pick your poison:
-21220690: (21206222): Choices: (MMU = disabled):
-21236538: (21222070):    (d) 5s delay
-21245911: (21231443):    (e) test exception
-21258788: (21244320):    (n) test nested exception
-21275753: (21261285):    (f) dump FDT
-21285126: (21270658):    (M) enable MMU
-21295667: (21281199):    (m) disable MMU
-21306792: (21292324):    (I) enable ints
-21317917: (21303449):    (i) disable ints
-21329626: (21315158):    (H) enable HV dec
-21341919: (21327451):    (h) disable HV dec
-21354796: (21340328):    (q) poweroff
+23607506: (23534392): Pick your poison:
+23618543: (23545429): Choices: (MMU = disabled):
+23634445: (23561331):    (d) 5s delay
+23643850: (23570736):    (e) test exception
+23656771: (23583657):    (n) test nested exception
+23673794: (23600680):    (f) dump FDT
+23683199: (23610085):    (M) enable MMU
+23693776: (23620662):    (m) disable MMU
+23704939: (23631825):    (t) test MMU
+23714344: (23641230):    (I) enable ints
+23725507: (23652393):    (i) disable ints
+23737256: (23664142):    (H) enable HV dec
+23749591: (23676477):    (h) disable HV dec
+23762512: (23689398):    (q) poweroff
 
 You can interact with this:
 (d) poll the timebase registers until 5s of real time pass.
@@ -117,6 +110,8 @@ You can interact with this:
     boot to map 1:1 (EA->RA) exactly the memory between &_start and &_end. Any
     DSI/ISI turns off the MMU.
 (m) disables MSR.IR and MSR.DR, disabling MMU.
+(t) simple test for MMU code, mapping the same EA to different RAs and verifying
+    that the mapping worked.
 (I) enables external interrupts (MSR.EE). You will start seeing decrementer
     exceptions.
 (i) disables external interrupts. You will no longer see any decrementer

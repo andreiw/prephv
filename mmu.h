@@ -21,9 +21,14 @@
 #ifndef MMU_H
 #define MMU_H
 
+typedef uint64_t ra_t;
+typedef uint64_t ea_t;
+typedef uint64_t prot_t;
+
 int mmu_init(uint64_t ram_size);
 void mmu_enable(void);
 void mmu_disable(void);
 int mmu_enabled(void);
-
+int mmu_map(ea_t ea, ra_t ra, prot_t pp);
+int mmu_unmap(ea_t ea);
 #endif /* MMU_H */

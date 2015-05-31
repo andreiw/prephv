@@ -174,6 +174,40 @@ test_syscall(uint64_t param)
 }
 
 
+static void
+test_mmu(void)
+{
+	/*
+	 * 1TB - 4K.
+	 */
+	int res;
+	ra_t ra;
+	ea_t ea = (1UL * 1024 * 1024 * 1024 * 1024) - PAGE_SIZE;
+	int en = mmu_enabled();
+
+	if (!en) {
+		mmu_enable();
+	}
+
+	ra = (ra_t) &_start;
+	mmu_map(ea, ra, PP_RWXX);
+	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
+	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
+	       res ? "in" : "");
+	mmu_unmap(ea);
+	ra = (ra_t) &_start + PAGE_SIZE;
+	mmu_map(ea, ra, PP_RWXX);
+	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
+	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
+	       res ? "in" : "");
+	mmu_unmap(ea);
+
+	if (!en) {
+		mmu_disable();
+	}
+}
+
+
 void
 menu(void *fdt)
 {
@@ -192,6 +226,7 @@ menu(void *fdt)
 			       "   (f) dump FDT\n"
 			       "   (M) enable MMU\n"
 			       "   (m) disable MMU\n"
+			       "   (t) test MMU\n"
 			       "   (I) enable ints\n"
 			       "   (i) disable ints\n"
 			       "   (H) enable HV dec\n"
@@ -207,6 +242,9 @@ menu(void *fdt)
 			break;
 		case 'm':
 			mmu_disable();
+			break;
+		case 't':
+			test_mmu();
 			break;
 		case 'f':
 			dump_nodes(fdt);
@@ -267,6 +305,5 @@ c_main(void *fdt)
 	printk("FDT    = %p\n", fdt);
 
 	cpu_init(fdt);
-
 	menu(fdt);
 }
