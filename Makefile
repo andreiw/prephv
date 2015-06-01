@@ -5,7 +5,7 @@ ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 -ml
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin -fno-stack-protector \
              -I./ -Wall -Werror
 
-OBJ =  entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o exc.o time.o mmu.o
+OBJ =  entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o exc.o time.o mmu.o mem.o opal.o mambo.o cache.o
 NAME =  ppc64le_hello
 
 all: $(NAME)

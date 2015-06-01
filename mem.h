@@ -1,5 +1,5 @@
 /*
- * Various console-related bits.
+ * Basic allocator.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,15 +18,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#ifndef MEM_H
+#define MEM_H
 
-#include <stdarg.h>
+#include <types.h>
 
-#define NO_CHAR -1
+void *mem_alloc(length_t size, length_t align);
 
-void printk(char *fmt, ...);
-void vprintk(char *fmt, va_list adx);
-int getchar(void);
-
-#endif /* CONSOLE_H */
+#endif /* MEM_H */

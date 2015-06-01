@@ -1,5 +1,5 @@
 /*
- * Various console-related bits.
+ * Various callthru stuff.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,15 +18,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#ifndef MAMBO_H
+#define MAMBO_H
 
-#include <stdarg.h>
+void mambo_write(char *buf, length_t len);
 
-#define NO_CHAR -1
-
-void printk(char *fmt, ...);
-void vprintk(char *fmt, va_list adx);
-int getchar(void);
-
-#endif /* CONSOLE_H */
+#endif /* MAMBO_H */

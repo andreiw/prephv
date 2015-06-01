@@ -28,9 +28,12 @@ What you get:
   Note that since only a few areas are mapped, attempt
   to access an unmapped area with the MMU on will force
   the MMU off (see exc.c).
+- Running unpriviledged code.
 
 Hopefully the code is clear enough and not too messy. I'm not trying hard
-enough ;-(.
+enough ;-(. I think the only code that has had any thought put into it
+is the exception vectors, and other places look especially crappy because
+I wanted to avoid writing an actual kernel.
 
 Building
 ========
@@ -56,44 +59,44 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 You're looking for output like -
 ...
 20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
-20296330: (20296328): Hello Mambo!
-20297096: (20297094): Hello OPAL!
-20297709: (20297707): _start = 0x20010000
-20310336: (20310030): _bss   = 0x20017B28
-20322963: (20322353): _stack = 0x20018000
-20335590: (20334676): _end   = 0x2001B000
-20348226: (20347008): KPCR   = 0x20017B48
-20360863: (20359341): OPAL   = 0x30000000
-20373489: (20371663): FDT    = 0x303039F0
-20442386: (20440256): SLB size = 0x20
-20485018: (20482812): TB freq = 512000000
-20501867: (20499319): [20497394000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20510809: (20508261): [20503107000,3] SLW: Not found on chip 0
-20515046: (20512498): [20511062000,3] ELOG: Error getting buffer to log error
-20515762: (20513214): OPAL claims no HILE supported, pretend to know better...
-20549695: (20547147): Unrecoverable exception stack top @ 0x20019EC8
-20578178: (20575326): Recoverable exception stack top @ 0x2001B000
-20608358: (20605200): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
-20774656: (20770736): SLB entries:
-20782880: (20778922): 1: E 0x8000000 V 0x4000000000000400
-20806614: (20801782): EA 0x20040000 -> hash 0x20040 -> pteg 0x200 = RA 0x20040000
+20296450: (20296448): Hello Mambo!
+20297219: (20297217): Hello OPAL!
+20297837: (20297835): _start = 0x20010000
+20310569: (20310263): _bss   = 0x20017E28
+20323301: (20322691): _stack = 0x20018000
+20336033: (20335119): _end   = 0x2001B000
+20348774: (20347556): KPCR   = 0x20017E50
+20361516: (20359994): OPAL   = 0x30000000
+20374247: (20372421): FDT    = 0x303039F0
+20443249: (20441119): SLB size = 0x20
+20485966: (20483760): TB freq = 512000000
+20502920: (20500372): [20498447000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20511862: (20509314): [20504160000,3] SLW: Not found on chip 0
+20516099: (20513551): [20512115000,3] ELOG: Error getting buffer to log error
+20516820: (20514272): OPAL claims no HILE supported, pretend to know better...
+20551043: (20548495): Unrecoverable exception stack top @ 0x20019EC8
+20582673: (20579819): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+20749261: (20745645): SLB entries:
+20757555: (20753901): 1: E 0x8000000 V 0x4000000000000400
+20781474: (20776946): EA 0x20040000 -> hash 0x20040 -> pteg 0x200 = RA 0x20040000
 ...
-23569587: (23497351): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
+23566967: (23495035): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
 
-23607506: (23534392): Pick your poison:
-23618543: (23545429): Choices: (MMU = disabled):
-23634445: (23561331):    (d) 5s delay
-23643850: (23570736):    (e) test exception
-23656771: (23583657):    (n) test nested exception
-23673794: (23600680):    (f) dump FDT
-23683199: (23610085):    (M) enable MMU
-23693776: (23620662):    (m) disable MMU
-23704939: (23631825):    (t) test MMU
-23714344: (23641230):    (I) enable ints
-23725507: (23652393):    (i) disable ints
-23737256: (23664142):    (H) enable HV dec
-23749591: (23676477):    (h) disable HV dec
-23762512: (23689398):    (q) poweroff
+23605196: (23532386): Pick your poison:
+23616328: (23543518): Choices: (MMU = disabled):
+23632384: (23559555):    (d) 5s delay
+23641869: (23569040):    (e) test exception
+23654900: (23582071):    (n) test nested exception
+23672068: (23599239):    (f) dump FDT
+23681553: (23608724):    (M) enable MMU
+23692220: (23619391):    (m) disable MMU
+23703478: (23630649):    (t) test MMU
+23712963: (23640134):    (u) test non-priviledged code
+23732495: (23659666):    (I) enable ints
+23743753: (23670924):    (i) disable ints
+23755602: (23682773):    (H) enable HV dec
+23768042: (23695213):    (h) disable HV dec
+23781073: (23708244):    (q) poweroff
 
 You can interact with this:
 (d) poll the timebase registers until 5s of real time pass.
@@ -108,10 +111,14 @@ You can interact with this:
     improvement and its just glue around parts of libfdt.
 (M) enables running with MSR.IR and MSR.DR. The page table and SLB are setup at
     boot to map 1:1 (EA->RA) exactly the memory between &_start and &_end. Any
-    DSI/ISI turns off the MMU.
+    DSI/ISI turns off the MMU. Exceptions never keep MMU on inside the exceptions.
 (m) disables MSR.IR and MSR.DR, disabling MMU.
 (t) simple test for MMU code, mapping the same EA to different RAs and verifying
     that the mapping worked.
+(u) shows running unpriviledged code. There's no scheduler, process/thread support
+    so the hand-off between code is messy. We enter user code via syscall, saving
+    off the exception frame for a subsequent return from user code, again via
+    syscall.
 (I) enables external interrupts (MSR.EE). You will start seeing decrementer
     exceptions.
 (i) disables external interrupts. You will no longer see any decrementer

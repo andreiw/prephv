@@ -1,5 +1,5 @@
 /*
- * Various console-related bits.
+ * Primitive cache handling code.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,15 +18,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#include <asm-utils.h>
 
-#include <stdarg.h>
+_GLOBAL(flush_cache)
+	addi	4,4,0x1f        /* len = (len + 0x1f) / 0x20 */
+	rlwinm.	4,4,27,5,31
+	mtctr	4
+	beqlr
+1:	dcbf	0,3
+	icbi	0,3
+	addi	3,3,0x20
+	bdnz	1b
+	sync
+	isync
+	blr
 
-#define NO_CHAR -1
-
-void printk(char *fmt, ...);
-void vprintk(char *fmt, va_list adx);
-int getchar(void);
-
-#endif /* CONSOLE_H */

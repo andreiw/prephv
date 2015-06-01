@@ -50,9 +50,6 @@ SECTIONS
 		_unrec_stack_start = .;
 		. += 4096;
 		_unrec_stack_top = .;
-		_rec_stack_start = .;
-		. += 4096;
-		_rec_stack_top = .;
 	}
 
 	_end = . ;

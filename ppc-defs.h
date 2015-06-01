@@ -35,6 +35,7 @@
 #define STK_REG(i)     __STK_REG(__REG_##i)
 #define STK_GOT		24
 #define STK_LR		16
+#define STK_CR		8
 #define __STK_PARAM(i)	(32 + ((i)-3)*8)
 
 #ifdef __ASSEMBLY__

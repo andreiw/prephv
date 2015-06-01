@@ -30,6 +30,7 @@
 #include <kpcr.h>
 #include <ppc.h>
 #include <mmu.h>
+#include <mem.h>
 
 /*
  * in order to fit the 78 bit va in a 64 bit variable we shift the va by
@@ -358,7 +359,7 @@ mmu_init(uint64_t ram_size)
 	 *
 	 * See 5.7.7.4 PowerISA v2.07 p904.
 	 */
-	htab = PALIGN_UP(&_end, HTAB_ALIGN);
+	htab = mem_alloc(htab_size, HTAB_ALIGN);
 	printk("HTAB (%u ptegs, mask 0x%x, size 0x%x) @ %p\n",
 	       ptegs, htab_hash_mask, htab_size, htab);
 

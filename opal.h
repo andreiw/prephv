@@ -46,8 +46,12 @@
 #ifndef __ASSEMBLY__
 typedef int opal_return_t;
 
-opal_return_t opal_write(int terminal, length_t *len, char *buf);
-opal_return_t opal_read(int terminal, length_t *len, char *buf);
+/*
+ * I'm not obvious enough below - since OPAL runs with MMU off,
+ * all pointer parameters must be real addresses (or be 1:1 to).
+ */
+opal_return_t opal_write(int terminal, length_t RA_PTR len, char RA_PTR buf);
+opal_return_t opal_read(int terminal, length_t RA_PTR len, char RA_PTR buf);
 opal_return_t opal_reinit_cpus(uint64_t flags);
 
 #endif /* __ASSEMBLY__ */

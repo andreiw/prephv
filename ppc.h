@@ -146,4 +146,7 @@ cpu_relax(void)
 	asm volatile("nop; nop; nop; nop\n");
 	smt_medium();
 }
+
+void flush_cache(vaddr_t base, length_t len);
+
 #endif /* PPC_H */

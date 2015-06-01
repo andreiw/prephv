@@ -1,5 +1,5 @@
 /*
- * Various console-related bits.
+ * Callthru (i.e. semihosting) facilities.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,15 +18,23 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#include <asm-utils.h>
+#include <ppc-defs.h>
+#include <opal.h>
+#include <kpcr.h>
 
-#include <stdarg.h>
-
-#define NO_CHAR -1
-
-void printk(char *fmt, ...);
-void vprintk(char *fmt, va_list adx);
-int getchar(void);
-
-#endif /* CONSOLE_H */
+/*
+ * Use simulator callthru (i.e. semihosting) facilities
+ * to print a string.
+ *
+ * r3 - buffer
+ * r4 - len
+ */
+_GLOBAL(mambo_write)
+#define SIM_WRITE_CONSOLE_CODE 0
+	li	r6, 0
+	mr	r5, r4
+	mr	r4, r3
+	li	r3, SIM_WRITE_CONSOLE_CODE
+	.long	0x000eaeb0
+	blr

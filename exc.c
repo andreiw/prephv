@@ -27,6 +27,13 @@
 #include <kpcr.h>
 #include <exc.h>
 
+/*
+ * ppc64le_hello has no concept of threads or per-thread exception stacks,
+ * so when we switch into our atrophied user code, so we stash the
+ * return state for when the user code quits.
+ */
+eframe_t ret_from_us;
+
 
 void
 exc_handler(eframe_t *frame)
@@ -73,9 +80,26 @@ exc_handler(eframe_t *frame)
 		if (frame->r3 == 0xdead) {
 			printk("Triggering nested exception crash\n");
 			asm volatile("sc");
+		} else if (frame->r3 == 0x7e57) {
+			/*
+			 * A scheduler switching to an unpriviledged
+			 * context needs to update the SP pointer used
+			 * to handle kernel work on the context's behalf.
+			 * In this lame example we piggy-back onto
+			 * the stack used by main() (as it won't be running
+			 * anyway until we return to it via
+			 * test_syscall(0x1337, 0)).
+			 */
+			kpcr_get()->kern_sp = frame->r1;
+			ret_from_us = *frame;
+			printk("returning to user code\n");
+			exc_rfi((eframe_t *) frame->r4);
+		} else if (frame->r3 == 0x1337) {
+			printk("returning to kernel code\n");
+			exc_rfi(&ret_from_us);
 		}
 
-		frame->r3 = frame->r3 << 16 | 0xface;
+		frame->r3 = frame->r3 << 16 | frame->r4;
 		exc_rfi(frame);
 	}
 
@@ -159,9 +183,6 @@ exc_init(void)
 	kpcr_get()->unrec_sp = (uint64_t) &_unrec_stack_top - sizeof(eframe_t);
 	printk("Unrecoverable exception stack top @ 0x%x\n",
 	       kpcr_get()->unrec_sp);
-	kpcr_get()->rec_sp = (uint64_t) &_rec_stack_top;
-	printk("Recoverable exception stack top @ 0x%x\n",
-	       kpcr_get()->rec_sp);
 
 	/*
 	 * Copy vectors down.

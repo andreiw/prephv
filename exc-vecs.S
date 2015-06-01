@@ -40,7 +40,8 @@
 	std	r2, eframe_r2(r1);		\
 	/*					\
 	 * Enter with vec#, r0 and r2 saved to	\
-	 * unrec_sp. r1 in SPRG1.		\
+	 * unrec_sp. r1 in SPRG1. r2 and r0	\
+	 * are scratch.				\
 	 */					\
 	b where;				\
 
@@ -97,21 +98,48 @@ exc_sys:
 	std	r0, eframe_hsrr1(r1)
 exc_cont:
 	/*
-	 * If this is a nested exception,
-	 * continue saving to top of the
-	 * unrecoverable stack r1. Otherwise,
-	 * load the normal exception handling
-	 * stack, and copy stashed vec, r0, r2, hsrr0
+	 * If this is a non-recoverable (nested?)
+	 * exception, continue saving to top of the
+	 * unrecoverable stack r1. Otherwise, use
+	 * interrupted r1 stack unless we're coming
+	 * from unpriviledged mode. If we switch
+	 * away from unrecoverable stack, we need to
+	 * copy stashed vec, r0, r2, hsrr0
 	 * and hsrr1 values to it.
 	 *
+	 * r0 - hsrr1.
 	 * r1 - unrecoverable exception stack
-	 * r2 - recoverable exception stack
-	 * r0 - scratch.
+	 * r2 - scratch.
 	 */
-	andi.	r0, r0, MSR_RI
-	beq-	1f
+	andi.	r2, r0, MSR_RI
+	beq-	exc_more_save
+	/*
+	 * It's a recoverable exception.
+	 */
+	andi.	r2, r0, MSR_PR
+	bne-	exc_with_kern_sp
+	/*
+	 * From kernel mode, continue using whatever
+	 * stack we had before the exception.
+	 */
+	mfspr	r2, SPRN_HSPRG1
+	b	copy_stashed
+exc_with_kern_sp:
+	/*
+	 * It's coming from unpriviledged mode,
+	 * switch to kernel stack.
+	 */
 	mfspr	r2, SPRN_HSPRG0
-	ld	r2, KPCR_R(rec_sp, r2)
+	ld	r2, KPCR_R(kern_sp, r2)
+copy_stashed:
+	/*
+	 * Copy stashed vec, r0, r2, hsrr0
+	 * and hsrr1 values from the unrecoverable
+	 * stack pointed to by r1 to the kernel stack
+	 * pointed to by r2.
+	 *
+	 * r0 is scratch.
+	 */
 	subi	r2, r2, eframe_sizeof
 	ld	r0, eframe_vec(r1)
 	std	r0, eframe_vec(r2)
@@ -123,11 +151,17 @@ exc_cont:
 	std	r0, eframe_hsrr0(r2)
 	ld	r0, eframe_hsrr1(r1)
 	std	r0, eframe_hsrr1(r2)
-	/*
-	 * Switch to recoverable exception stack.
-	 */
 	mr	r1, r2
-1:	mfspr	r0, SPRN_HSPRG1
+	/*
+	 * End switch to recoverable exception stack,
+	 * now common register save code.
+	 */
+exc_more_save:
+	/*
+	 * Save more stuff. r0 and r2
+	 * are scratch at this point.
+	 */
+	mfspr	r0, SPRN_HSPRG1
 	std	r0, eframe_r1(r1)
 	std	r3, eframe_r3(r1)
 	std	r4, eframe_r4(r1)
@@ -171,12 +205,10 @@ exc_cont:
 	mr	r3, r1
 	subi	r1, r1, STACKFRAMEMIN
 	/*
-	 * Store updated recoverable exception stack
-	 * and jump to handler. This is an indirect jump
+	 * Jump to handler. This is an indirect jump
 	 * because our example is linked at some address
 	 * other than 0, while the vectors have to be at 0.
 	 */
-	std	r1, KPCR(rec_sp)
 	LOAD_ADDR(r0, exc_handler)
 	mtlr	r0
 	blr
@@ -184,13 +216,6 @@ exc_cont:
 exc_end:
 
 _GLOBAL(exc_rfi)
-	/*
-	 * We only recover from recoverable exceptions so
-	 * we know we must be using the recoverable stack.
-	 */
-	mr	r1, r3
-	addi	r1, r1, eframe_sizeof
-	std	r1, KPCR(rec_sp)
 	/*
 	 * Now to restore everything...
 	 */

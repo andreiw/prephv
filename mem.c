@@ -1,5 +1,5 @@
 /*
- * Various console-related bits.
+ * Basic allocator.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,15 +18,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#include <types.h>
+#include <defs.h>
+#include <linkage.h>
 
-#include <stdarg.h>
+static void *base = &_end;
 
-#define NO_CHAR -1
 
-void printk(char *fmt, ...);
-void vprintk(char *fmt, va_list adx);
-int getchar(void);
-
-#endif /* CONSOLE_H */
+void *
+mem_alloc(length_t size,
+	  length_t align)
+{
+	void *a = PALIGN_UP(base, align);
+	base = (void *) ((uint64_t) a + size);
+	return a;
+}

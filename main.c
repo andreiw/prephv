@@ -23,6 +23,7 @@
 #include <types.h>
 #include <endian.h>
 #include <linkage.h>
+#include <mambo.h>
 #include <console.h>
 #include <kpcr.h>
 #include <opal.h>
@@ -32,6 +33,7 @@
 #include <ppc.h>
 #include <time.h>
 #include <mmu.h>
+#include <mem.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -165,12 +167,71 @@ dump_nodes(void *fdt)
 
 
 static uint64_t
-test_syscall(uint64_t param)
+test_syscall(uint64_t param1, uint64_t param2)
 {
-	register uint64_t r3 __asm__ ("r3");
-	r3 = param;
-	asm volatile("sc" : "=r" (r3) : "r" (r3));
+	register uint64_t r3 __asm__ ("r3") = param1;
+	register uint64_t r4 __asm__ ("r4") = param2;
+	asm volatile("sc" : "=r" (r3) : "r" (r3), "r" (r4));
 	return r3;
+}
+
+
+static void
+test_u(void)
+{
+	static void *upage = NULL;
+	int en = mmu_enabled();
+	eframe_t uframe;
+
+	/*
+	 * 1TB - 4K.
+	 */
+	ea_t ea = (1UL * 1024 * 1024 * 1024 * 1024) - PAGE_SIZE;
+
+	if (upage == NULL) {
+		upage = mem_alloc(PAGE_SIZE, PAGE_SIZE);
+	}
+
+	if (!en) {
+		mmu_enable();
+	}
+
+	/*
+	 * Grab a page. Needs to be mapped with access from
+	 * unpriviledged mode. We will use both to contain
+	 * code to run and the stack.
+	 */
+	mmu_map(ea, (uint64_t) upage, PP_RWRW);
+	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_u -
+	       (uint64_t) &test_syscall);
+	flush_cache(ea, PAGE_SIZE);
+
+	/*
+	 * User code does test_syscall(0x1337, 0), which simply returns
+	 * to kernel state.
+	 */
+	uframe.r1 = ea + PAGE_SIZE - STACKFRAMESIZE;
+	uframe.r3 = 0x1337;
+	uframe.r4 = 0;
+	uframe.hsrr0 = ea;
+	uframe.hsrr1 = mfmsr() | MSR_PR;
+
+	/*
+	 * Force switch into user code. The exception handler stashes
+	 * the kernel state behind in a global (sigh), which is magically
+	 * restored on a test_syscall(0x1337, 0). The things we do
+	 * to avoid writing an actual scheduler.
+	 */
+	test_syscall(0x7e57, (uint64_t) &uframe);
+
+	/*
+	 * We return here.
+	 */
+	mmu_unmap(ea);
+
+	if (!en) {
+		mmu_disable();
+	}
 }
 
 
@@ -227,6 +288,7 @@ menu(void *fdt)
 			       "   (M) enable MMU\n"
 			       "   (m) disable MMU\n"
 			       "   (t) test MMU\n"
+			       "   (u) test non-priviledged code\n"
 			       "   (I) enable ints\n"
 			       "   (i) disable ints\n"
 			       "   (H) enable HV dec\n"
@@ -246,6 +308,9 @@ menu(void *fdt)
 		case 't':
 			test_mmu();
 			break;
+		case 'u':
+			test_u();
+			break;
 		case 'f':
 			dump_nodes(fdt);
 			break;
@@ -253,11 +318,12 @@ menu(void *fdt)
 			return;
 		case 'e':
 			printk("Testing exception handling...\n");
-			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed));
+			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed,
+								  0xface));
 			break;
 		case 'n':
 			printk("Testing nested exception handling...\n");
-			printk("sc(dead) => 0x%x\n", test_syscall(0xdead));
+			printk("sc(dead) => 0x%x\n", test_syscall(0xdead, 0));
 			break;
 		case 'd':
 			time_delay(secs_to_tb(5));
