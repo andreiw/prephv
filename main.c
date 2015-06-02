@@ -204,6 +204,7 @@ test_u(void)
 	mmu_map(ea, (uint64_t) upage, PP_RWRW);
 	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_u -
 	       (uint64_t) &test_syscall);
+	lwsync();
 	flush_cache(ea, PAGE_SIZE);
 
 	/*

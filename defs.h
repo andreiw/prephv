@@ -1,5 +1,5 @@
 /*
- * String ops.
+ * Various useful macros.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *

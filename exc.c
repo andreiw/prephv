@@ -171,9 +171,10 @@ exc_init(void)
 
 	/*
 	 * Force external interrupts to HV mode.
+	 *
 	 * Non-HV exceptions are LE (don't really need this here, but
-	 * if there's ever user-space code doing an sc...).
-	 * HV decrementer enabled.
+	 * if there's MSR.HV=0 MSR.PR=1 code does an sc...). We call
+	 * unpriviledged code with MSR.HV=1 MSR.PR=1.
 	 */
 	set_LPCR((get_LPCR() & ~LPCR_LPES) | LPCR_ILE);
 
@@ -190,6 +191,7 @@ exc_init(void)
 	memcpy((void *) 0, &exc_base,
 	       (uint64_t) &exc_end - (uint64_t) &exc_base);
 	lwsync();
+	flush_cache(0, (uint64_t) &exc_end - (uint64_t) &exc_base);
 
 	/*
 	 * Vectors expect HSPRG0 to contain the pointer to KPCR,
