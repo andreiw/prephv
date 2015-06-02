@@ -148,6 +148,12 @@ A: From benh: "The way mambo (aka systemsim) works, there is no expectation
    inside ppc64le_hello.tcl. On my machine (i5-2410M) the TB should run
    about 1000 times faster than clock.
 
+TODO
+====
+
+- Maybe show more callthru sim facilities? Like file I/O...
+- Spinlocks
+
 Resources
 =========
 
