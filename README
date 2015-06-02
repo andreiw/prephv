@@ -111,14 +111,15 @@ You can interact with this:
     improvement and its just glue around parts of libfdt.
 (M) enables running with MSR.IR and MSR.DR. The page table and SLB are setup at
     boot to map 1:1 (EA->RA) exactly the memory between &_start and &_end. Any
-    DSI/ISI turns off the MMU. Exceptions never keep MMU on inside the exceptions.
+    DSI/ISI turns off the MMU. Exceptions never keep MMU on inside the
+     exceptions.
 (m) disables MSR.IR and MSR.DR, disabling MMU.
 (t) simple test for MMU code, mapping the same EA to different RAs and verifying
     that the mapping worked.
-(u) shows running unpriviledged code. There's no scheduler, process/thread support
-    so the hand-off between code is messy. We enter user code via syscall, saving
-    off the exception frame for a subsequent return from user code, again via
-    syscall.
+(u) shows running unpriviledged code. There's no scheduler, process/thread
+    support so the hand-off between code is messy. We enter user code via
+    syscall, saving off the exception frame for a subsequent return from user
+    code, again via syscall.
 (I) enables external interrupts (MSR.EE). You will start seeing decrementer
     exceptions.
 (i) disables external interrupts. You will no longer see any decrementer
@@ -139,12 +140,13 @@ Issues
 ======
 
 Q: Delay test seems to run longer or shorter than 5s wall clock.
-A: From benh: "The way mambo (aka systemsim) works, there is no expectation that the
-               simulated timebase has any relationship whatsoever to wall clock outside
-               of sim. All you can do really is play with the ratio emulated CPU
-               cycles / TB cycles."
-   ...change processor/cpu_frequency and processor/timebase_frequency. On my
-   machine (i5-2410M) the TB should run about 1000 times faster than clock.
+A: From benh: "The way mambo (aka systemsim) works, there is no expectation
+               that the simulated timebase has any relationship whatsoever
+               to wall clock outside of sim. All you can do really is play
+               with the ratio emulated CPU cycles / TB cycles."
+   ...change processor/cpu_frequency and processor/timebase_frequency
+   inside ppc64le_hello.tcl. On my machine (i5-2410M) the TB should run
+   about 1000 times faster than clock.
 
 Resources
 =========
