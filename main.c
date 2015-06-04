@@ -201,7 +201,7 @@ test_u(void)
 	 * unpriviledged mode. We will use both to contain
 	 * code to run and the stack.
 	 */
-	mmu_map(ea, (uint64_t) upage, PP_RWRW, PAGE_4K);
+	mmu_map(ea, ptr_2_ra(upage), PP_RWRW, PAGE_4K);
 	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_u -
 	       (uint64_t) &test_syscall);
 	lwsync();
@@ -264,9 +264,9 @@ test_mmu_16mb(void)
 	}
 
 	printk("mapping two EAs to same RA - on a sim this will take a while...\n");
-	mmu_map((ea_t) ea, (ra_t) p1, PP_RWXX, PAGE_16M);
+	mmu_map((ea_t) ea, ptr_2_ra(p1), PP_RWXX, PAGE_16M);
 	printk("mapped 0x%x to 0x%x as 16M\n", ea, p1);
-	mmu_map((ea_t) ea2, (ra_t) p1, PP_RWXX, PAGE_16M);
+	mmu_map((ea_t) ea2, ptr_2_ra(p1), PP_RWXX, PAGE_16M);
 	printk("mapped 0x%x to 0x%x as 16M\n", ea2, p1);
 	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
 		ea[i] = (uint64_t) &p1[i];
@@ -286,7 +286,7 @@ test_mmu_16mb(void)
 
 	printk("mapping same EAs to different RAs\n");
 	mmu_unmap((ea_t) ea2, PAGE_16M);
-	mmu_map((ea_t) ea2, (ra_t) p2, PP_RWXX, PAGE_16M);
+	mmu_map((ea_t) ea2, ptr_2_ra(p2), PP_RWXX, PAGE_16M);
 	printk("mapped %p to %p as 16M\n", ea2, p2);
 	good = memcmp((void *) ea, (void *) ea2, PAGE_SIZE * 2) != 0;
 	printk("mapped %p to %p %scorrectly\n", ea2,
@@ -318,13 +318,13 @@ test_mmu(void)
 		mmu_enable();
 	}
 
-	ra = (ra_t) &_start;
+	ra = ptr_2_ra(&_start);
 	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
 	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
 	       res ? "in" : "");
 	mmu_unmap(ea, PAGE_4K);
-	ra = (ra_t) &_start + PAGE_SIZE;
+	ra = ptr_2_ra(&_start) + PAGE_SIZE;
 	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
 	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
@@ -429,7 +429,7 @@ c_main(void *fdt)
 	/*
 	 * Write using firmware interface.
 	 */
-	opal_write(OPAL_TERMINAL_0, &len, HELLO_OPAL);
+	opal_write(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(HELLO_OPAL));
 
 	/*
 	 * Some info.
@@ -439,6 +439,7 @@ c_main(void *fdt)
 	printk("_stack = %p\n", &_stack_start);
 	printk("_end   = %p\n", &_end);
 	printk("KPCR   = %p\n", kpcr_get());
+	printk("TOC    = %p\n", kpcr_get()->toc);
 	printk("OPAL   = %p\n", kpcr_get()->opal_base);
 	printk("FDT    = %p\n", fdt);
 

@@ -49,7 +49,7 @@ asm-offset.s: asm-offset.c
 	@rm -f $*.d.tmp
 
 $(NAME): asm-offset.h $(OBJ)
-	$(CC) $(ARCH_FLAGS)  -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x20010000 -lgcc -o $@ $^
+	$(CC) $(ARCH_FLAGS)  -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
 
 clean:
 	$(RM) $(NAME) *.o *.o.s *.d asm-offset.h asm-offset.s

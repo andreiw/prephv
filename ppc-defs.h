@@ -158,6 +158,17 @@
 #define EXC_TABLE_END   0xFFF
 
 /*
+ * HV real mode access that bypasses HRMOR. We don't use HRMOR,
+ * but this lets us link to 0x8000000020010000, even though
+ * skiboot loads us to 0x20010000.
+ *
+ * Useful feature, for example, because Power ISA does not define BATs any more
+ * and paging is a PITA to set up early in the game (and low addresses suck,
+ * esp. for a hypervisor).
+ */
+#define HV_ASPACE 0x8000000000000000UL
+
+/*
  * GNU tools somehow don't know about the 2-register tlbie.
  *
  * This is awful.
@@ -198,6 +209,7 @@
 #define MIN_PTEGS  (1UL << 11)
 #define MAX_PTEGS  (1UL << (11 + 28))
 #define HTAB_ALIGN (MIN_PTEGS * PTEG_SIZE)
+#define SDR1_MASK (~(HTAB_ALIGN - 1) |  0xF000000000000000UL)
 
 /*
  * Base page size if 4K.

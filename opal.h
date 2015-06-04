@@ -44,14 +44,16 @@
 #define OPAL_REINIT_CPUS_HILE_LE (1 << 1)
 
 #ifndef __ASSEMBLY__
+#include <mmu.h>
+
 typedef int opal_return_t;
 
 /*
  * I'm not obvious enough below - since OPAL runs with MMU off,
- * all pointer parameters must be real addresses (or be 1:1 to).
+ * all pointer parameters must be real addresses or be HV real aliases.
  */
-opal_return_t opal_write(int terminal, length_t RA_PTR len, char RA_PTR buf);
-opal_return_t opal_read(int terminal, length_t RA_PTR len, char RA_PTR buf);
+opal_return_t opal_write(int terminal, ra_t len, ra_t buf);
+opal_return_t opal_read(int terminal, ra_t len, ra_t buf);
 opal_return_t opal_reinit_cpus(uint64_t flags);
 
 #endif /* __ASSEMBLY__ */

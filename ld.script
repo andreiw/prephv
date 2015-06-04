@@ -2,7 +2,7 @@ ENTRY(_start)
 SECTIONS
 {
 	. = ALIGN(0x10);
-	.text :
+	.text : AT(0x20010000)
 	{
 		_start = .;
 		*(.text)

@@ -22,17 +22,27 @@
 #define MMU_H
 
 #include <types.h>
+#include <assert.h>
 
 typedef uint64_t ra_t;
 typedef uint64_t ea_t;
 typedef uint64_t prot_t;
+
+
+static inline ra_t
+ptr_2_ra(void *addr) {
+	ea_t ea = (ea_t) addr;
+
+	BUG_ON((ea & HV_ASPACE) == 0, "must only pass HV addresses");
+	return ea & ~HV_ASPACE;
+}
 
 typedef enum {
   PAGE_4K,
   PAGE_16M,
 } page_size_t;
 
-void mmu_init(uint64_t ram_size);
+void mmu_init(length_t ram_size);
 void mmu_enable(void);
 void mmu_disable(void);
 bool_t mmu_enabled(void);

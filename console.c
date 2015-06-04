@@ -22,6 +22,7 @@
 #include <defs.h>
 #include <endian.h>
 #include <console.h>
+#include <types.h>
 #include <opal.h>
 
 
@@ -29,7 +30,7 @@ static void
 putchar(char c)
 {
 	uint64_t len = cpu_to_be64(1);
-	opal_write(OPAL_TERMINAL_0, &len, &c);
+	opal_write(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(&c));
 }
 
 
@@ -40,7 +41,7 @@ getchar(void)
 	opal_return_t ret;
 	uint64_t len = cpu_to_be64(1);
 
-	ret = opal_read(OPAL_TERMINAL_0, &len, &c);
+	ret = opal_read(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(&c));
 	if (ret != OPAL_SUCCESS || len == 0) {
 		return NO_CHAR;
 	}

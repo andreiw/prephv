@@ -23,6 +23,7 @@
 
 #include <types.h>
 #include <defs.h>
+#include <assert.h>
 #include <console.h>
 #include <linkage.h>
 #include <endian.h>
@@ -43,10 +44,20 @@
 #define VPN_SHIFT 12
 typedef uint64_t vpn_t;
 
-/*
- * ESID(0) => VSID(0).
- */
-#define EA_TO_VPN(ea) (ea >> VPN_SHIFT)
+
+static inline vpn_t
+ea_2_vpn(ea_t ea)
+{
+	/*
+	 * ESID(800000) => VSID(0).
+	 * ESID(000000) => VSID(0).
+	 */
+	if ((ea & HV_ASPACE) != 0) {
+		return (ea & ~HV_ASPACE) >> VPN_SHIFT;
+	}
+
+	return ea >> VPN_SHIFT;
+}
 
 typedef struct {
 	__be64 v;
@@ -54,8 +65,8 @@ typedef struct {
 } pte_t;
 
 static void *htab;
-static uint64_t ptegs;
-static uint64_t htab_size;
+static count_t ptegs;
+static length_t htab_size;
 static uint64_t htab_hash_mask;
 
 
@@ -110,22 +121,21 @@ slb_init(void)
 	uint64_t esid;
 	uint64_t vsid;
 
-	/*
-	 * We don't do anything too crazy here, just set up 1
-	 * segment where ESID (0) == VSID (0). Our ISI/DSI
-	 * handlers will simply map the VA to RA 1:1, as long as
-	 * VA is not beyond &_end.
-	 */
-
 	asm volatile("slbia" ::: "memory");
 	isync();
 
 	/*
-	 * 1TB segment at EA=0 => VA=0. We use slot = 1,
-	 * since slot 0 has special handling (not
-	 * invalidated with tlbia).
+	 * 1TB segment at EA=HV_ASPACE => VA=0. We use slot = 1,
+	 * since slot 0 has special handling (not invalidated
+	 * with tlbia).
+	 *
+	 * Also create a 1TB segment at EA=0 => VA=0.
 	 */
-	esid = slb_make_esid(0, 1);
+	esid = slb_make_esid(HV_ASPACE, 1);
+	vsid = slb_make_vsid(0);
+	asm volatile("slbmte %0, %1" ::
+		     "r"(vsid), "r"(esid) : "memory");
+	esid = slb_make_esid(0, 2);
 	vsid = slb_make_vsid(0);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
@@ -158,7 +168,7 @@ vpn_hash(vpn_t vpn,
 	int shift;
 	vpn_t mask, hash, vsid;
 
-	BUG_ON(base != PAGE_4K);
+	BUG_ON(base != PAGE_4K, "only 4K base page size supported");
 	shift = PAGE_SHIFT;
 
 	mask = (1ul << (SID_SHIFT_1T - VPN_SHIFT)) - 1;
@@ -181,9 +191,16 @@ rpn_encode(ra_t ra,
 		lp = PTE_R_4K_16M << PTE_R_LP_SHIFT;
 		mask = PTE_R_RPN_16M;
 	} else {
+		BUG_ON(actual != PAGE_4K, "unsupported actual page size");
+
 		lp = 0;
 		mask = PTE_R_RPN_4K;
 	}
+
+	/*
+	 * ra must be valid and well aligned.
+	 */
+	BUG_ON((ra & mask) != ra, "ra 0x%x does not match mask 0x%x", ra, mask);
 
 	ra &= mask;
 	ra |= lp;
@@ -229,6 +246,7 @@ tlbie(vpn_t vpn,
 	if (actual == PAGE_16M) {
 		shift = PAGE_SHIFT_16M;
 	} else {
+		BUG_ON(actual != PAGE_4K, "unsupported actual page size");
 		/*
 		 * 4K.
 		 */
@@ -243,7 +261,6 @@ tlbie(vpn_t vpn,
 
 	if (actual == PAGE_16M) {
 		va |= TLBIE_RB_L;
-
 		/*
 		 * 16M pages.
 		 */
@@ -273,12 +290,16 @@ mmu_unmap(ea_t ea,
 	if (actual == PAGE_16M) {
 		actual_size = PAGE_SIZE_16M;
 	} else {
+		BUG_ON(actual != PAGE_4K, "unsupported actual page size");
 		actual_size = PAGE_SIZE;
 	}
 
+	BUG_ON((ea & ~(actual_size - 1)) != ea,
+	       "ea 0x%x not aligned to 0x%x", ea, actual_size);
+
 	while (actual_size != 0) {
 		int i;
-		vpn_t vpn = EA_TO_VPN(ea);
+		vpn_t vpn = ea_2_vpn(ea);
 		uint64_t hash = vpn_hash(vpn, PAGE_4K);
 		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
 		pte_t *pte = ((pte_t *) htab) + pteg;
@@ -309,7 +330,7 @@ mmu_unmap(ea_t ea,
 		 *        ea, hash, pteg, i, be64_to_cpu(pte->v), be64_to_cpu(pte->r));
 		 */
 
-		BUG_ON(i == PTES_PER_GROUP);
+		BUG_ON(i == PTES_PER_GROUP, "EA 0x%x not mapped", ea);
 
 		pte->v = be64_to_cpu(0);
 		ptesync();
@@ -338,8 +359,14 @@ mmu_map(ea_t ea,
 	if (actual == PAGE_16M) {
 		actual_size = PAGE_SIZE_16M;
 	} else {
+		BUG_ON(actual != PAGE_4K, "unsupported actual page size");
 		actual_size = PAGE_SIZE;
 	}
+
+	BUG_ON((ea & ~(actual_size - 1)) != ea,
+	       "EA 0x%x not aligned to 0x%x", ea, actual_size);
+	BUG_ON((ra & ~(actual_size - 1)) != ra,
+	       "RA 0x%x not aligned to 0x%x", ra, actual_size);
 
 	/*
 	 * In a loop, with ea incrementing by PAGE_SIZE, to accomodate
@@ -350,7 +377,7 @@ mmu_map(ea_t ea,
 		int i;
 		uint64_t v;
 		uint64_t r;
-		uint64_t hash = vpn_hash(EA_TO_VPN(ea), PAGE_4K);
+		uint64_t hash = vpn_hash(ea_2_vpn(ea), PAGE_4K);
 		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
 		pte_t *pte = ((pte_t *) htab) + pteg;
 
@@ -372,12 +399,12 @@ mmu_map(ea_t ea,
 
 		/*
 		 * printk("EA 0x%x -> hash 0x%x -> pteg 0x%x (i = %u) = RA 0x%x\n",
-		 *     ea, hash, pteg, i, ra);
+		 * ea, hash, pteg, i, ra);
 		 */
 
-		BUG_ON(i == PTES_PER_GROUP);
+		BUG_ON(i == PTES_PER_GROUP, "PTEG spill for EA 0x%x", ea);
 
-		v = avpn_encode(EA_TO_VPN(ea), actual) | vflags;
+		v = avpn_encode(ea_2_vpn(ea), actual) | vflags;
 		r = rpn_encode(ra, actual) | rflags;
 
 		/*
@@ -433,8 +460,9 @@ mmu_map_range(ea_t ea_start,
 
 
 void
-mmu_init(uint64_t ram_size)
+mmu_init(length_t ram_size)
 {
+	ra_t htab_ra;
 	ptegs = pteg_count(ram_size);
 	htab_size = ptegs * PTEG_SIZE;
 	htab_hash_mask = ptegs - 1;
@@ -456,21 +484,27 @@ mmu_init(uint64_t ram_size)
 	 * bits) from the hash that are used in the Page Table
 	 * index. This number must not exceed 28.
 	 */
-	set_SDR1((uint64_t) htab + __ilog2(ptegs) - 11);
-
+	htab_ra = ptr_2_ra(htab);
+	BUG_ON((htab_ra & SDR1_MASK) != htab_ra,
+	       "HTAB address 0x%x spills outside SDR1");
+	set_SDR1(htab_ra + __ilog2(ptegs) - 11);
 	slb_init();
 
 	/*
-	 * Only map the bare minimum 1:1.
+	 * Only map the bare minimum.
+	 *
+	 * Loaded at 0x00000000200XXXXX.
+	 * We run at 0x80000000200XXXXX.
+	 *
 	 */
-	mmu_map_range((uint64_t) htab,
-		      ((uint64_t) htab) + htab_size,
-		      (uint64_t) htab,
+	mmu_map_range((ea_t) htab,
+		      ((ea_t) htab) + htab_size,
+		      htab_ra,
 		      PP_RWXX,
 		      FALSE);
-	mmu_map_range((uint64_t) &_start,
-		      (uint64_t) &_end,
-		      (uint64_t) &_start,
+	mmu_map_range((ea_t) &_start,
+		      (ea_t) &_end,
+		      ptr_2_ra(&_start),
 		      PP_RWXX,
 		      FALSE);
 }

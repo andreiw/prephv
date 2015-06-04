@@ -209,8 +209,8 @@ exc_more_save:
 	 * because our example is linked at some address
 	 * other than 0, while the vectors have to be at 0.
 	 */
-	LOAD_ADDR(r0, exc_handler)
-	mtlr	r0
+	LOAD_ADDR(r12, exc_handler)
+	mtlr	r12
 	blr
 .globl exc_end
 exc_end:

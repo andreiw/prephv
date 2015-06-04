@@ -71,7 +71,7 @@
 	lis     r,(e)@highest;                  \
 	ori     r,r,(e)@higher;                 \
 	rldicr  r,r, 32, 31;                    \
-	oris    r,r, (e)@h;                     \
+	oris    r,r, (e)@high;                  \
 	ori     r,r, (e)@l;
 
 #define LOAD_ADDR(r, n)                         \

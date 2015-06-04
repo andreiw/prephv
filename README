@@ -22,8 +22,11 @@ What you get:
   unrecoverable/nested exceptions.
 - Timebase (i.e. the "timestamp counter"), decrementer
   and hypervisor decrementer manipulation.
-- Very basic MMU setup (1:1 EA->VA mapping using a 1TB
-  SLB entry, and 1:1 VA->RA mapping and mixed page support.
+- Running at HV alias addresses (loaded at 0x00000000200XXXXX,
+  linked at 0x80000000200XXXXX).
+- Very basic MMU setup. 1:1 EA->VA @ 0x0 mapping using a 1TB
+  SLB entry, and a EA->VA SLBE covering 1TB for the HV alias
+  range. 1:1 VA->RA mapping and mixed page support.
   Base page size is 4K, and actual page size is 4K and 16M.
   Not SMP safe. Note that since only a few areas are mapped at boot,
   attempt to access an unmapped area with the MMU on will force the
@@ -107,10 +110,9 @@ You can interact with this:
     exceptions and handle them appropriately.
 (f) dumps the FDT passed up by skiboot. I don't try very hard. This code needs
     improvement and its just glue around parts of libfdt.
-(M) enables running with MSR.IR and MSR.DR. The page table and SLB are setup at
-    boot to map 1:1 (EA->RA) exactly the memory between &_start and &_end. Any
-    DSI/ISI turns off the MMU. Exceptions never keep MMU on inside the
-     exceptions.
+(M) enables running with MSR.IR and MSR.DR. HTAB and memory between &_start
+    and &_end are mapped. Any  DSI/ISI turns off the MMU. Exceptions never keep
+    MMU on inside the exceptions.
 (m) disables MSR.IR and MSR.DR, disabling MMU.
 (t) simple test for MMU code, mapping the same EA to different RAs and verifying
     that the 4K mapping worked.

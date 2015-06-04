@@ -24,10 +24,10 @@
 #include <console.h>
 #include <ppc.h>
 
-#define BUG_ON(x) do {					\
+#define BUG_ON(x, fmt, ...) do {                        \
 		if ((x)) {				\
 			mtmsrd(0, 1);			\
-			printk("BUG: %s", S(x));	\
+			printk("BUG (%s): " fmt "\n", S(x), ## __VA_ARGS__); \
 			while(1);			\
 		}					\
 	} while(0);
