@@ -27,6 +27,7 @@
 #include <linkage.h>
 #include <endian.h>
 #include <string.h>
+#include <assert.h>
 #include <kpcr.h>
 #include <ppc.h>
 #include <mmu.h>
@@ -151,40 +152,66 @@ pteg_count(uint64_t ram_size)
 
 
 static inline uint64_t
-vpn_hash(vpn_t vpn)
+vpn_hash(vpn_t vpn,
+	 page_size_t base)
 {
+	int shift;
 	vpn_t mask, hash, vsid;
+
+	BUG_ON(base != PAGE_4K);
+	shift = PAGE_SHIFT;
 
 	mask = (1ul << (SID_SHIFT_1T - VPN_SHIFT)) - 1;
 	vsid = vpn >> (SID_SHIFT_1T - VPN_SHIFT);
 	hash = vsid ^ (vsid << 25) ^
-		((vpn & mask) >> (PAGE_SHIFT - VPN_SHIFT));
+		((vpn & mask) >> (shift - VPN_SHIFT));
 
 	return hash & 0x7fffffffffUL;
 }
 
 
 static inline uint64_t
-rpn_encode(ra_t ra)
+rpn_encode(ra_t ra,
+	   page_size_t actual)
 {
-	/*
-	 * 4K pages are easy.
-	 */
-	return ra & PTE_R_RPN;
+	ra_t lp;
+	ra_t mask;
+
+	if (actual == PAGE_16M) {
+		lp = PTE_R_4K_16M << PTE_R_LP_SHIFT;
+		mask = PTE_R_RPN_16M;
+	} else {
+		lp = 0;
+		mask = PTE_R_RPN_4K;
+	}
+
+	ra &= mask;
+	ra |= lp;
+
+	return ra;
 }
 
 
 static inline uint64_t
-avpn_encode(vpn_t vpn)
+avpn_encode(vpn_t vpn,
+	    page_size_t actual)
 {
 	uint64_t v;
+
+	/*
+	 * If the base page size goes over 23 bits, those bits need be
+	 * cleared. So for 16M pages, we need to clear bit 24.
+	 *
+	 * For us the base page size is always 4K.
+	 */
+
 	/*
 	 * The AVA field omits the low-order 23 bits of the 78 bits VA.
 	 * These bits are not needed in the PTE, because the
 	 * low-order b of these bits are part of the byte offset
 	 * into the virtual page and, if b < 23, the high-order
 	 * 23-b of these bits are always used in selecting the
-	 * PTEGs to be searched
+	 * PTEGs to be searched.
 	 */
 	v = vpn >> (23 - VPN_SHIFT);
 	v <<= PTE_V_AVPN_SHIFT;
@@ -193,11 +220,43 @@ avpn_encode(vpn_t vpn)
 
 
 static inline void
-tlbie(vpn_t vpn)
+tlbie(vpn_t vpn,
+      page_size_t actual)
 {
 	uint64_t va = vpn << VPN_SHIFT;
-	va &= ~((1ul << (64 - 52)) - 1);
+	int shift;
+
+	if (actual == PAGE_16M) {
+		shift = PAGE_SHIFT_16M;
+	} else {
+		/*
+		 * 4K.
+		 */
+		shift = PAGE_SHIFT;
+	}
+
+	/*
+	 * 5.9.3.3 PowerISA v2.07 p928.
+	 */
+	va &= ~((1ul << shift) - 1);
 	va |= TLBIE_RB_1TB;
+
+	if (actual == PAGE_16M) {
+		va |= TLBIE_RB_L;
+
+		/*
+		 * 16M pages.
+		 */
+		va |= (PTE_R_4K_16M << TLBIE_RB_LP_SHIFT);
+
+		/*
+		 * The AVAL bits represent those bits that end
+		 * getting overlapped by LP. Unneeded bits must
+		 * be ignored by the CPU. See p928.
+		 */
+		va |= (vpn & 0xfe);
+	}
+
 	asm volatile (PPC_TLBIE(%1, %0) : : "r"(va), "r"(0));
 	eieio();
 	tlbsync();
@@ -205,151 +264,177 @@ tlbie(vpn_t vpn)
 }
 
 
-int
-mmu_unmap(ea_t ea)
+void
+mmu_unmap(ea_t ea,
+	  page_size_t actual)
 {
-	int i;
-	vpn_t vpn = EA_TO_VPN(ea);
-	uint64_t hash = vpn_hash(vpn);
-	uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
-	pte_t *pte = ((pte_t *) htab) + pteg;
+	length_t actual_size;
 
-	/*
-	 * We don't do secondary PTEGs and we're not SMP safe:
-	 * real OSes use one of the software bits inside the V
-	 * part of pte_t as a spinlock.
-	 */
-	printk("EA 0x%x -> hash 0x%x -> pteg 0x%x = unmap\n",
-	       ea, hash, pteg);
-	for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
-		if ((be64_to_cpu(pte->v) & PTE_V_VALID) == 0) {
-			/*
+	if (actual == PAGE_16M) {
+		actual_size = PAGE_SIZE_16M;
+	} else {
+		actual_size = PAGE_SIZE;
+	}
 
-			 * Not used, go to next slot.
-			 */
-			continue;
+	while (actual_size != 0) {
+		int i;
+		vpn_t vpn = EA_TO_VPN(ea);
+		uint64_t hash = vpn_hash(vpn, PAGE_4K);
+		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
+		pte_t *pte = ((pte_t *) htab) + pteg;
+
+		/*
+		 * We don't do secondary PTEGs and we're not SMP safe:
+		 * real OSes use one of the software bits inside the V
+		 * part of pte_t as a spinlock.
+		 */
+		for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
+			if ((be64_to_cpu(pte->v) & PTE_V_VALID) == 0) {
+				/*
+
+				 * Not used, go to next slot.
+				 */
+				continue;
+			}
+
+			if (PTE_V_COMPARE(be64_to_cpu(pte->v),
+					  avpn_encode(vpn, actual))) {
+				break;
+			}
 		}
 
-		if (PTE_V_COMPARE(be64_to_cpu(pte->v),
-				  avpn_encode(vpn)) == 0) {
+		/*
+		 * printk("EA 0x%x -> hash 0x%x -> pteg 0x%x "
+		 *        "(i = %u v = 0x%x r = 0x%x) = unmap\n",
+		 *        ea, hash, pteg, i, be64_to_cpu(pte->v), be64_to_cpu(pte->r));
+		 */
+
+		BUG_ON(i == PTES_PER_GROUP);
+
+		pte->v = be64_to_cpu(0);
+		ptesync();
+		tlbie(vpn, actual);
+
+		/*
+		 * Update the next PTE that is part of the large PTE group.
+		 */
+		actual_size -= PAGE_SIZE;
+		ea += PAGE_SIZE;
+	}
+}
+
+
+void
+mmu_map(ea_t ea,
+	ra_t ra,
+	prot_t pp,
+	page_size_t actual)
+{
+	length_t actual_size;
+	uint64_t rflags = pp | PTE_R_M;
+	uint64_t vflags = PTE_V_1TB_SEG | PTE_R_M | PTE_V_VALID |
+		((actual != PAGE_4K) ? PTE_V_LARGE : 0);
+
+	if (actual == PAGE_16M) {
+		actual_size = PAGE_SIZE_16M;
+	} else {
+		actual_size = PAGE_SIZE;
+	}
+
+	/*
+	 * In a loop, with ea incrementing by PAGE_SIZE, to accomodate
+	 * large pages in a mixed page environment. The base page size
+	 * is 4K.
+	 */
+	while (actual_size != 0) {
+		int i;
+		uint64_t v;
+		uint64_t r;
+		uint64_t hash = vpn_hash(EA_TO_VPN(ea), PAGE_4K);
+		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
+		pte_t *pte = ((pte_t *) htab) + pteg;
+
+		/*
+		 * We don't do secondary PTEGs and we're not SMP safe:
+		 * real OSes use one of the software bits inside the V
+		 * part of pte_t as a spinlock.
+		 */
+		for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
+			if ((be64_to_cpu(pte->v) & PTE_V_VALID) != 0) {
+				/*
+				 * Busy, go to next slot.
+				 */
+				continue;
+			}
+
 			break;
 		}
-	}
 
-	if (i == PTES_PER_GROUP) {
-		printk("EA 0x%x not mapped\n", ea);
-		return -1;
-	}
-
-	pte->v = be64_to_cpu(0);
-	ptesync();
-	tlbie(vpn);
-
-	return 0;
-}
-
-
-int
-mmu_map(ea_t ea, ra_t ra, prot_t pp)
-{
-	int i;
-	uint64_t v;
-	uint64_t r;
-	uint64_t rflags = pp | PTE_R_M;
-	uint64_t vflags = PTE_V_1TB_SEG | PTE_R_M | PTE_V_VALID;
-	uint64_t hash = vpn_hash(EA_TO_VPN(ea));
-	uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
-	pte_t *pte = ((pte_t *) htab) + pteg;
-
-	/*
-	 * We don't do secondary PTEGs and we're not SMP safe:
-	 * real OSes use one of the software bits inside the V
-	 * part of pte_t as a spinlock.
-	 */
-	printk("EA 0x%x -> hash 0x%x -> pteg 0x%x = RA 0x%x\n",
-	       ea, hash, pteg, ra);
-	for (i = 0; i < PTES_PER_GROUP; i++, pte++) {
-		if ((be64_to_cpu(pte->v) & PTE_V_VALID) != 0) {
-			/*
-			 * Busy, go to next slot.
-			 */
-			continue;
-		}
-
-		break;
-	}
-
-	if (i == PTES_PER_GROUP) {
-		printk("Couldn't map EA 0x%x\n", ea);
-		return -1;
-	}
-
-	v = avpn_encode(EA_TO_VPN(ea)) | vflags;
-	r = rpn_encode(ra) | rflags;
-
-	/*
-	 * Unnecessary here (there were no other mappings),
-	 * but if we were recycling a slot, we'd:
-	 * - pte_t.v.PTE_V_VALID = 0
-	 * - ptesync
-	 * - tlbie(recycled VPN)
+		/*
+		 * printk("EA 0x%x -> hash 0x%x -> pteg 0x%x (i = %u) = RA 0x%x\n",
+		 *     ea, hash, pteg, i, ra);
 		 */
-	tlbie(EA_TO_VPN(ea));
 
-	/*
-	 * See 5.7.3.5 PowerISA v2.07 p895.
-	 *
-	 * Implicit accesses to the Page Table during address
-	 * translation and in recording reference and change infor-
-	 * mation are performed as though the storage occupied
-	 * by the Page Table had the following storage control
-	 * attributes.
-	 * W - not Write Through Required
-	 * I - not Caching Inhibited
-	 * M - Memory Coherence Required
-	 * G - not Guarded
-	 * not SAO
-	 *
-	 *... this has the implication that there is no need
-	 * to dcbf the HTAB updates themselves. Note that
-	 * changes to W/I flags of a mapped page will require
-	 * cache maintenance. See 5.8.2.2 PowerISA v2.07 p915.
-	 *
-	 * For PTE update rules see 5.10.1 PowerISA v2.07 p935.
-	 */
-	pte->r = cpu_to_be64(r);
-	eieio();
-	pte->v = cpu_to_be64(v);
-	ptesync();
+		BUG_ON(i == PTES_PER_GROUP);
 
-	return 0;
+		v = avpn_encode(EA_TO_VPN(ea), actual) | vflags;
+		r = rpn_encode(ra, actual) | rflags;
+
+		/*
+		 * See 5.7.3.5 PowerISA v2.07 p895.
+		 *
+		 * Implicit accesses to the Page Table during address
+		 * translation and in recording reference and change infor-
+		 * mation are performed as though the storage occupied
+		 * by the Page Table had the following storage control
+		 * attributes.
+		 * W - not Write Through Required
+		 * I - not Caching Inhibited
+		 * M - Memory Coherence Required
+		 * G - not Guarded
+		 * not SAO
+		 *
+		 *... this has the implication that there is no need
+		 * to dcbf the HTAB updates themselves. Note that
+		 * changes to W/I flags of a mapped page will require
+		 * cache maintenance. See 5.8.2.2 PowerISA v2.07 p915.
+		 *
+		 * For PTE update rules see 5.10.1 PowerISA v2.07 p935.
+		 */
+		pte->r = cpu_to_be64(r);
+		eieio();
+		pte->v = cpu_to_be64(v);
+		ptesync();
+
+		/*
+		 * Update the next PTE that is part of the large PTE group.
+		 */
+		actual_size -= PAGE_SIZE;
+		ea += PAGE_SIZE;
+	}
 }
 
 
-int
+void
 mmu_map_range(ea_t ea_start,
 	      ea_t ea_end,
 	      ra_t ra_start,
-	      prot_t prot)
+	      prot_t prot,
+	      page_size_t actual)
 {
-	int ret;
 	ea_t addr = ea_start;
 	ra_t ra = ra_start;
+	length_t size = (actual == PAGE_16M) ? PAGE_SIZE_16M : PAGE_SIZE;
 
-	for (; addr < ea_end; addr += PAGE_SIZE, ra += PAGE_SIZE) {
-		ret = mmu_map(addr, ra, prot);
-		if (ret != 0) {
-			return ret;
-		}
+	for (; addr < ea_end; addr += size, ra += size) {
+		mmu_map(addr, ra, prot, actual);
 	}
-
-	return 0;
 }
 
-int
+
+void
 mmu_init(uint64_t ram_size)
 {
-	int ret;
 	ptegs = pteg_count(ram_size);
 	htab_size = ptegs * PTEG_SIZE;
 	htab_hash_mask = ptegs - 1;
@@ -378,25 +463,16 @@ mmu_init(uint64_t ram_size)
 	/*
 	 * Only map the bare minimum 1:1.
 	 */
-	ret = mmu_map_range((uint64_t) htab,
-			    ((uint64_t) htab) + htab_size,
-			    (uint64_t) htab,
-			    PP_RWXX);
-	if (ret != 0) {
-		printk("Couldn't map HTAB\n");
-		return ret;
-	}
-	ret = mmu_map_range((uint64_t) &_start,
-			    (uint64_t) &_end,
-			    (uint64_t) &_start,
-			    PP_RWXX);
-	if (ret != 0) {
-		printk("Couldn't map kernel binary\n");
-		return ret;
-	}
-
-	tlbsync();
-	return 0;
+	mmu_map_range((uint64_t) htab,
+		      ((uint64_t) htab) + htab_size,
+		      (uint64_t) htab,
+		      PP_RWXX,
+		      FALSE);
+	mmu_map_range((uint64_t) &_start,
+		      (uint64_t) &_end,
+		      (uint64_t) &_start,
+		      PP_RWXX,
+		      FALSE);
 }
 
 
@@ -414,7 +490,7 @@ mmu_disable(void)
 }
 
 
-int
+bool_t
 mmu_enabled(void)
 {
 	return (mfmsr() & (MSR_IR | MSR_DR)) == (MSR_IR | MSR_DR);

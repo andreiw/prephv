@@ -23,11 +23,11 @@ What you get:
 - Timebase (i.e. the "timestamp counter"), decrementer
   and hypervisor decrementer manipulation.
 - Very basic MMU setup (1:1 EA->VA mapping using a 1TB
-  SLB entry, and 1:1 VA->RA mapping using 4K pages
-  for memory between &_start and &_end. Not SMP safe.
-  Note that since only a few areas are mapped, attempt
-  to access an unmapped area with the MMU on will force
-  the MMU off (see exc.c).
+  SLB entry, and 1:1 VA->RA mapping and mixed page support.
+  Base page size is 4K, and actual page size is 4K and 16M.
+  Not SMP safe. Note that since only a few areas are mapped at boot,
+  attempt to access an unmapped area with the MMU on will force the
+  MMU off (see exc.c).
 - Running unpriviledged code.
 
 Hopefully the code is clear enough and not too messy. I'm not trying hard
@@ -59,44 +59,42 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 You're looking for output like -
 ...
 20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
-20296450: (20296448): Hello Mambo!
-20297219: (20297217): Hello OPAL!
-20297837: (20297835): _start = 0x20010000
-20310569: (20310263): _bss   = 0x20017E28
-20323301: (20322691): _stack = 0x20018000
-20336033: (20335119): _end   = 0x2001B000
-20348774: (20347556): KPCR   = 0x20017E50
-20361516: (20359994): OPAL   = 0x30000000
-20374247: (20372421): FDT    = 0x303039F0
-20443249: (20441119): SLB size = 0x20
-20485966: (20483760): TB freq = 512000000
-20502920: (20500372): [20498447000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20511862: (20509314): [20504160000,3] SLW: Not found on chip 0
-20516099: (20513551): [20512115000,3] ELOG: Error getting buffer to log error
-20516820: (20514272): OPAL claims no HILE supported, pretend to know better...
-20551043: (20548495): Unrecoverable exception stack top @ 0x20019EC8
-20582673: (20579819): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
-20749261: (20745645): SLB entries:
-20757555: (20753901): 1: E 0x8000000 V 0x4000000000000400
-20781474: (20776946): EA 0x20040000 -> hash 0x20040 -> pteg 0x200 = RA 0x20040000
-...
-23566967: (23495035): EA 0x2001A000 -> hash 0x2001A -> pteg 0xD0 = RA 0x2001A000
+20296456: (20296454): Hello Mambo!
+20297225: (20297223): Hello OPAL!
+20297843: (20297841): _start = 0x20010000
+20310575: (20310269): _bss   = 0x20018538
+20323307: (20322697): _stack = 0x20019000
+20336039: (20335125): _end   = 0x2001B000
+20348780: (20347562): KPCR   = 0x20018570
+20361522: (20360000): OPAL   = 0x30000000
+20374253: (20372427): FDT    = 0x303039F0
+20443255: (20441125): SLB size = 0x20
+20485972: (20483766): TB freq = 512000000
+20502926: (20500378): [20498453000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20511868: (20509320): [20504166000,3] SLW: Not found on chip 0
+20516105: (20513557): [20512121000,3] ELOG: Error getting buffer to log error
+20516826: (20514278): OPAL claims no HILE supported, pretend to know better...
+20551049: (20548501): Unrecoverable exception stack top @ 0x2001AEC8
+20583250: (20580393): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
+20749838: (20746219): SLB entries:
+20758132: (20754475): 1: E 0x8000000 V 0x4000000000000400
 
-23605196: (23532386): Pick your poison:
-23616328: (23543518): Choices: (MMU = disabled):
-23632384: (23559555):    (d) 5s delay
-23641869: (23569040):    (e) test exception
-23654900: (23582071):    (n) test nested exception
-23672068: (23599239):    (f) dump FDT
-23681553: (23608724):    (M) enable MMU
-23692220: (23619391):    (m) disable MMU
-23703478: (23630649):    (t) test MMU
-23712963: (23640134):    (u) test non-priviledged code
-23732495: (23659666):    (I) enable ints
-23743753: (23670924):    (i) disable ints
-23755602: (23682773):    (H) enable HV dec
-23768042: (23695213):    (h) disable HV dec
-23781073: (23708244):    (q) poweroff
+20809876: (20805195): Pick your poison:
+20821008: (20816327): Choices: (MMU = disabled):
+20837045: (20832364):    (d) 5s delay
+20846530: (20841849):    (e) test exception
+20859561: (20854880):    (n) test nested exception
+20876729: (20872048):    (f) dump FDT
+20886214: (20881533):    (M) enable MMU
+20896881: (20892200):    (m) disable MMU
+20908139: (20903458):    (t) test MMU
+20917624: (20912943):    (T) test MMU 16mb pages
+20933610: (20928929):    (u) test non-priviledged code
+20953142: (20948461):    (I) enable ints
+20964400: (20959719):    (i) disable ints
+20976249: (20971568):    (H) enable HV dec
+20988689: (20984008):    (h) disable HV dec
+21001720: (20997039):    (q) poweroff
 
 You can interact with this:
 (d) poll the timebase registers until 5s of real time pass.
@@ -115,7 +113,8 @@ You can interact with this:
      exceptions.
 (m) disables MSR.IR and MSR.DR, disabling MMU.
 (t) simple test for MMU code, mapping the same EA to different RAs and verifying
-    that the mapping worked.
+    that the 4K mapping worked.
+(T) simple 16MB page size mapping test.
 (u) shows running unpriviledged code. There's no scheduler, process/thread
     support so the hand-off between code is messy. We enter user code via
     syscall, saving off the exception frame for a subsequent return from user
@@ -158,8 +157,9 @@ Resources
 =========
 
 Useful stuff:
-- PowerISA_V2.07_PUBLIC.pdf            - Book 3S
-- ABI53BitOpenPOWER_21July2014_pub.pdf - ELFv2 ABI used for PPC64LE
+- PowerISA_V2.07_PUBLIC.pdf             - Book 3S
+- ABI53BitOpenPOWER_21July2014_pub.pdf  - ELFv2 ABI used for PPC64LE
+- P8_um_external_v1.1_2015JAN29_pub.pdf - POWER8 User Manual
 
 Contact Info
 ============

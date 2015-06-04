@@ -32,6 +32,9 @@ typedef uint64_t vaddr_t;
 typedef uint64_t offset_t;
 typedef uint64_t length_t;
 
-#define RA_PTR *
+#define FALSE 0
+#define TRUE  1
+typedef int bool_t;
 
+#define RA_PTR *
 #endif /* TYPES_H */

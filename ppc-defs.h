@@ -167,7 +167,9 @@
 #define ___PPC_RB(b) (((b) & 0x1f) << 11)
 #define PPC_TLBIE(lp,a) S(.long PPC_INST_TLBIE |	\
                           ___PPC_RB(a) | ___PPC_RS(lp))
-#define TLBIE_RB_1TB (1 << 9)
+#define TLBIE_RB_1TB      (1 << 9)
+#define TLBIE_RB_L        (1 << 0)
+#define TLBIE_RB_LP_SHIFT (12)
 
 /*
  * Segmentation defines. We only care about 1T segments.
@@ -198,10 +200,12 @@
 #define HTAB_ALIGN (MIN_PTEGS * PTEG_SIZE)
 
 /*
- * Only support 4K pages.
+ * Base page size if 4K.
  */
-#define PAGE_SHIFT     12
-#define PAGE_SIZE      (1 << PAGE_SHIFT)
+#define PAGE_SHIFT       12
+#define PAGE_SIZE        (1 << PAGE_SHIFT)
+#define PAGE_SHIFT_16M   24
+#define PAGE_SIZE_16M    (1 << PAGE_SHIFT_16M)
 
 /*
  * PTE bits.
@@ -212,7 +216,7 @@
 #define PTE_V_AVPN_SHIFT       7
 #define PTE_V_AVPN             (0x3fffffffffffff80)
 #define PTE_V_AVPN_VAL(x)      (((x) & PTE_V_AVPN) >> PTE_V_AVPN_SHIFT)
-#define PTE_V_COMPARE(x,y)     (!(((x) ^ (y)) & 0xffffffffffffff80UL))
+#define PTE_V_COMPARE(x,y)     (!(((x) ^ (y)) & PTE_V_AVPN))
 #define PTE_V_LARGE            (0x0000000000000004)
 #define PTE_V_SECONDARY        (0x0000000000000002)
 #define PTE_V_VALID            (0x0000000000000001)
@@ -221,7 +225,8 @@
 #define PTE_R_TS               (0x4000000000000000)
 #define PTE_R_KEY_HI           (0x3000000000000000)
 #define PTE_R_RPN_SHIFT        12
-#define PTE_R_RPN              (0x0ffffffffffff000)
+#define PTE_R_RPN_4K           (0x0ffffffffffff000)
+#define PTE_R_RPN_16M          (0x0fffffffff000000)
 #define PTE_R_PP               (0x0000000000000003)
 #define PTE_R_N                (0x0000000000000004)
 #define PTE_R_G                (0x0000000000000008)
@@ -229,11 +234,20 @@
 #define PTE_R_I                (0x0000000000000020)
 #define PTE_R_W                (0x0000000000000040)
 #define PTE_R_WIMG             (0x0000000000000078)
+#define PTE_R_LP_MASK          (0xff000)
+#define PTE_R_LP_SHIFT         12
 #define PTE_R_C                (0x0000000000000080)
 #define PTE_R_R                (0x0000000000000100)
 #define PTE_R_KEY_LO           (0x0000000000000e00)
 
-/* Protection balues for PP (assumes Ks=0, Kp=1) */
+/*
+ * Power8 PTE_R LP flags for large pages.
+ *
+ * See P103 of the POWER8 Processor User's Manual for the Single-Chip Module
+ */
+#define PTE_R_4K_16M           0x38
+
+/* Protection values for PP (assumes Ks=0, Kp=1) */
 #define PP_RWXX 0                 /* Supervisor read/write, User none */
 #define PP_RWRX 1                 /* Supervisor read/write, User read */
 #define PP_RWRW 2                 /* Supervisor read/write, User read/write */

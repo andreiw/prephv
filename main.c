@@ -186,7 +186,7 @@ test_u(void)
 	/*
 	 * 1TB - 4K.
 	 */
-	ea_t ea = (1UL * 1024 * 1024 * 1024 * 1024) - PAGE_SIZE;
+	ea_t ea = TB(1) - PAGE_SIZE;
 
 	if (upage == NULL) {
 		upage = mem_alloc(PAGE_SIZE, PAGE_SIZE);
@@ -201,7 +201,7 @@ test_u(void)
 	 * unpriviledged mode. We will use both to contain
 	 * code to run and the stack.
 	 */
-	mmu_map(ea, (uint64_t) upage, PP_RWRW);
+	mmu_map(ea, (uint64_t) upage, PP_RWRW, PAGE_4K);
 	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_u -
 	       (uint64_t) &test_syscall);
 	lwsync();
@@ -228,7 +228,74 @@ test_u(void)
 	/*
 	 * We return here.
 	 */
-	mmu_unmap(ea);
+	mmu_unmap(ea, PAGE_4K);
+
+	if (!en) {
+		mmu_disable();
+	}
+}
+
+
+static void
+test_mmu_16mb(void)
+{
+	int i;
+	bool_t good;
+
+	/*
+	 * 1TB - 16MB.
+	 */
+	uint64_t *ea = (uint64_t *) (TB(1) - MB(16));
+	uint64_t *ea2 = (uint64_t *) (TB(1) - MB(32));
+	int en = mmu_enabled();
+	static uint64_t *p1 = NULL;
+	static uint64_t *p2 = NULL;
+
+	if (p1 == NULL) {
+		p1 = mem_alloc(MB(16), MB(16));
+	}
+
+	if (p2 == NULL) {
+		p2 = mem_alloc(MB(16), MB(16));
+	}
+
+	if (!en) {
+		mmu_enable();
+	}
+
+	printk("mapping two EAs to same RA - on a sim this will take a while...\n");
+	mmu_map((ea_t) ea, (ra_t) p1, PP_RWXX, PAGE_16M);
+	printk("mapped 0x%x to 0x%x as 16M\n", ea, p1);
+	mmu_map((ea_t) ea2, (ra_t) p1, PP_RWXX, PAGE_16M);
+	printk("mapped 0x%x to 0x%x as 16M\n", ea2, p1);
+	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
+		ea[i] = (uint64_t) &p1[i];
+	}
+	printk("prep completed\n");
+	good = TRUE;
+	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
+		if (ea2[i] != (uint64_t) &p1[i]) {
+			good = FALSE;
+			break;
+		}
+	}
+	printk("16M mappings %swork\n", !good ? "don't " : "");
+	if (!good) {
+		goto out;
+	}
+
+	printk("mapping same EAs to different RAs\n");
+	mmu_unmap((ea_t) ea2, PAGE_16M);
+	mmu_map((ea_t) ea2, (ra_t) p2, PP_RWXX, PAGE_16M);
+	printk("mapped %p to %p as 16M\n", ea2, p2);
+	good = memcmp((void *) ea, (void *) ea2, PAGE_SIZE * 2) != 0;
+	printk("mapped %p to %p %scorrectly\n", ea2,
+	       p2, !good ? "in" : "");
+
+out:
+	printk("finishing up\n");
+	mmu_unmap((ea_t) ea2, PAGE_16M);
+	mmu_unmap((ea_t) ea, PAGE_16M);
 
 	if (!en) {
 		mmu_disable();
@@ -244,7 +311,7 @@ test_mmu(void)
 	 */
 	int res;
 	ra_t ra;
-	ea_t ea = (1UL * 1024 * 1024 * 1024 * 1024) - PAGE_SIZE;
+	ea_t ea = TB(1) - PAGE_SIZE;
 	int en = mmu_enabled();
 
 	if (!en) {
@@ -252,17 +319,17 @@ test_mmu(void)
 	}
 
 	ra = (ra_t) &_start;
-	mmu_map(ea, ra, PP_RWXX);
+	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
 	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
 	       res ? "in" : "");
-	mmu_unmap(ea);
+	mmu_unmap(ea, PAGE_4K);
 	ra = (ra_t) &_start + PAGE_SIZE;
-	mmu_map(ea, ra, PP_RWXX);
+	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
 	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
 	       res ? "in" : "");
-	mmu_unmap(ea);
+	mmu_unmap(ea, PAGE_4K);
 
 	if (!en) {
 		mmu_disable();
@@ -289,6 +356,7 @@ menu(void *fdt)
 			       "   (M) enable MMU\n"
 			       "   (m) disable MMU\n"
 			       "   (t) test MMU\n"
+			       "   (T) test MMU 16mb pages\n"
 			       "   (u) test non-priviledged code\n"
 			       "   (I) enable ints\n"
 			       "   (i) disable ints\n"
@@ -308,6 +376,9 @@ menu(void *fdt)
 			break;
 		case 't':
 			test_mmu();
+			break;
+		case 'T':
+			test_mmu_16mb();
 			break;
 		case 'u':
 			test_u();

@@ -43,6 +43,9 @@
 #define S(...) _S(__VA_ARGS__)
 #define _S(...) #__VA_ARGS__
 
+#define MB(x) (1UL * x * 1024 * 1024)
+#define TB(x) (1UL * x * 1024 * 1024 * 1024 * 1024)
+
 #define __packed                __attribute__((packed))
 #define __align(x)              __attribute__((__aligned__(x)))
 #define __unused                __attribute__((unused))

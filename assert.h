@@ -1,5 +1,5 @@
 /*
- * SLB/HTAB management.
+ * Basic assert. Not really nice.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -18,25 +18,18 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef MMU_H
-#define MMU_H
+#ifndef ASSERT_H
+#define ASSERT_H
 
-#include <types.h>
+#include <console.h>
+#include <ppc.h>
 
-typedef uint64_t ra_t;
-typedef uint64_t ea_t;
-typedef uint64_t prot_t;
+#define BUG_ON(x) do {					\
+		if ((x)) {				\
+			mtmsrd(0, 1);			\
+			printk("BUG: %s", S(x));	\
+			while(1);			\
+		}					\
+	} while(0);
 
-typedef enum {
-  PAGE_4K,
-  PAGE_16M,
-} page_size_t;
-
-void mmu_init(uint64_t ram_size);
-void mmu_enable(void);
-void mmu_disable(void);
-bool_t mmu_enabled(void);
-void mmu_map(ea_t ea, ra_t ra, prot_t pp, page_size_t actual);
-void mmu_unmap(ea_t ea, page_size_t actual);
-
-#endif /* MMU_H */
+#endif /* ASSERT_H */
