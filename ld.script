@@ -47,9 +47,6 @@ SECTIONS
 		_stack_start = .;
 		. += 4096;
 		_stack_top = .;
-		_unrec_stack_start = .;
-		. += 4096;
-		_unrec_stack_top = .;
 	}
 
 	_end = . ;

@@ -27,7 +27,5 @@ extern void * _bss_start;
 extern void * _stack_start;
 extern void *exc_base;
 extern void *exc_end;
-extern void *_unrec_stack_top;
-extern void *_rec_stack_top;
 
 #endif /* LINKAGE_H */

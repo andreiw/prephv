@@ -401,7 +401,6 @@ mmu_map(ea_t ea,
 		 * printk("EA 0x%x -> hash 0x%x -> pteg 0x%x (i = %u) = RA 0x%x\n",
 		 * ea, hash, pteg, i, ra);
 		 */
-
 		BUG_ON(i == PTES_PER_GROUP, "PTEG spill for EA 0x%x", ea);
 
 		v = avpn_encode(ea_2_vpn(ea), actual) | vflags;
@@ -495,18 +494,24 @@ mmu_init(length_t ram_size)
 	 *
 	 * Loaded at 0x00000000200XXXXX.
 	 * We run at 0x80000000200XXXXX.
-	 *
 	 */
-	mmu_map_range((ea_t) htab,
-		      ((ea_t) htab) + htab_size,
-		      htab_ra,
-		      PP_RWXX,
-		      FALSE);
-	mmu_map_range((ea_t) &_start,
-		      (ea_t) &_end,
-		      ptr_2_ra(&_start),
-		      PP_RWXX,
-		      FALSE);
+	/*
+	 * Use on-demand mapping, which works since
+	 * our ISI/DSI handlers run with MMU off today.
+	 *
+	 * Will need these mappings made right here and now
+	 * as soon as I support AIL (exceptions with MMU on).
+	 */
+	/* mmu_map_range((ea_t) htab, */
+	/* 	      ((ea_t) htab) + htab_size, */
+	/* 	      htab_ra, */
+	/* 	      PP_RWXX, */
+	/* 	      PAGE_4K); */
+	/* mmu_map_range((ea_t) &_start, */
+	/* 	      (ea_t) &_end, */
+	/* 	      ptr_2_ra(&_start), */
+	/* 	      PP_RWXX, */
+	/* 	      PAGE_4K); */
 }
 
 

@@ -23,14 +23,17 @@ What you get:
 - Timebase (i.e. the "timestamp counter"), decrementer
   and hypervisor decrementer manipulation.
 - Running at HV alias addresses (loaded at 0x00000000200XXXXX,
-  linked at 0x80000000200XXXXX).
+  linked at 0x80000000200XXXXX). The idea being that the code
+  will access physical RAM and its own data structures solely
+  using the HV addresses.
 - Very basic MMU setup. 1:1 EA->VA @ 0x0 mapping using a 1TB
   SLB entry, and a EA->VA SLBE covering 1TB for the HV alias
-  range. 1:1 VA->RA mapping and mixed page support.
+  range. 1:1 VA->RA mapping and mixed page support (4K and 16M).
   Base page size is 4K, and actual page size is 4K and 16M.
-  Not SMP safe. Note that since only a few areas are mapped at boot,
-  attempt to access an unmapped area with the MMU on will force the
-  MMU off (see exc.c).
+  Not SMP safe. Any access within the HV alias addresses
+  get mapped in. Any faults to other unmapped locations are
+  crashes, as addresses below 0x8000000000000000 should only
+  be explicit maps.
 - Running unpriviledged code.
 
 Hopefully the code is clear enough and not too messy. I'm not trying hard
@@ -62,44 +65,47 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 You're looking for output like -
 ...
 20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
-20296456: (20296454): Hello Mambo!
-20297225: (20297223): Hello OPAL!
-20297843: (20297841): _start = 0x20010000
-20310575: (20310269): _bss   = 0x20018538
-20323307: (20322697): _stack = 0x20019000
-20336039: (20335125): _end   = 0x2001B000
-20348780: (20347562): KPCR   = 0x20018570
-20361522: (20360000): OPAL   = 0x30000000
-20374253: (20372427): FDT    = 0x303039F0
-20443255: (20441125): SLB size = 0x20
-20485972: (20483766): TB freq = 512000000
-20502926: (20500378): [20498453000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20511868: (20509320): [20504166000,3] SLW: Not found on chip 0
-20516105: (20513557): [20512121000,3] ELOG: Error getting buffer to log error
-20516826: (20514278): OPAL claims no HILE supported, pretend to know better...
-20551049: (20548501): Unrecoverable exception stack top @ 0x2001AEC8
-20583250: (20580393): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x20040000
-20749838: (20746219): SLB entries:
-20758132: (20754475): 1: E 0x8000000 V 0x4000000000000400
+20296464: (20296462): Hello Mambo!
+20297277: (20297275): Hello OPAL!
+20297940: (20297938): _start = 0x8000000020010000
+20317142: (20316532): _bss   = 0x8000000020018F38
+20336344: (20335126): _stack = 0x800000002001A000
+20355546: (20353720): _end   = 0x800000002001D000
+20374757: (20372323): KPCR   = 0x8000000020018F70
+20393969: (20390927): TOC    = 0x8000000020020F00
+20413181: (20409531): OPAL   = 0x30000000
+20426878: (20422924): FDT    = 0x303039F0
+20496879: (20492621): SLB size = 0x20
+20540378: (20536044): TB freq = 512000000
+20558253: (20553577): [20553780000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20567195: (20562519): [20559493000,3] SLW: Not found on chip 0
+20571432: (20566756): [20567448000,3] ELOG: Error getting buffer to log error
+20572198: (20567522): OPAL claims no HILE supported, pretend to know better...
+20609089: (20604413): Unrecoverable exception stack top @ 0x800000002001BEC8
+20649004: (20643715): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x8000000020040000
+20823831: (20817476): SLB entries:
+20832769: (20826376): 1: E 0x8000000008000000 V 0x4000000000000400
+20863832: (20856185): 2: E 0x8000000 V 0x4000000000000400
 
-20809876: (20805195): Pick your poison:
-20821008: (20816327): Choices: (MMU = disabled):
-20837045: (20832364):    (d) 5s delay
-20846530: (20841849):    (e) test exception
-20859561: (20854880):    (n) test nested exception
-20876729: (20872048):    (f) dump FDT
-20886214: (20881533):    (M) enable MMU
-20896881: (20892200):    (m) disable MMU
-20908139: (20903458):    (t) test MMU
-20917624: (20912943):    (T) test MMU 16mb pages
-20933610: (20928929):    (u) test non-priviledged code
-20953142: (20948461):    (I) enable ints
-20964400: (20959719):    (i) disable ints
-20976249: (20971568):    (H) enable HV dec
-20988689: (20984008):    (h) disable HV dec
-21001720: (20997039):    (q) poweroff
+20890603: (20882082): Pick your poison:
+20902609: (20894088): Choices: (MMU = disabled):
+20919920: (20911399):    (d) 5s delay
+20930141: (20921620):    (e) test exception
+20944184: (20935663):    (n) test nested exception
+20962686: (20954165):    (f) dump FDT
+20972907: (20964386):    (M) enable MMU
+20984402: (20975881):    (m) disable MMU
+20996534: (20988013):    (t) test MMU
+21006755: (20998234):    (T) test MMU 16mb pages
+21023983: (21015462):    (u) test non-priviledged code
+21045033: (21036512):    (I) enable ints
+21057165: (21048644):    (i) disable ints
+21069934: (21061413):    (H) enable HV dec
+21083340: (21074819):    (h) disable HV dec
+21097383: (21088862):    (q) poweroff
 
 You can interact with this:
+---------------------------
 (d) poll the timebase registers until 5s of real time pass.
 (e) tests triggering a system call with parameter 0xfeed. The system
     call handler will return back parameter << 16 | 0xface, i.e. 0xfeedface.

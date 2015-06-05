@@ -31,6 +31,26 @@
  */
 #define STACKFRAMEMIN  32
 #define STACKFRAMESIZE 256
+/*
+ * ELF v2 ABI, p46, 2.2.2.4 Protected Zone.
+ *
+ * The 288 bytes below the stack pointer are available as volatile program
+ * storage that is not preserved across function calls. Interrupt handlers
+ * and any other functions that might run without an explicit call must take care
+ * to preserve a protected zone, also referred to as the red zone, of 512 bytes
+ * that consists of:
+ * - The 288-byte volatile program storage region that is used to hold saved
+ *   registers and local variables
+ * - An additional 224 bytes below the volatile program storage region that
+ *   is set aside as a volatile system storage region for system functions
+ *
+ * If a function does not call other functions and does not need more stack
+ * space than is available in the volatile program storage region (that is,
+ * 288 bytes), it does not need to have a stack frame. The 224-byte volatile
+ * system storage region is not available to compilers for allocation to
+ * saved registers and local variables.
+ */
+#define ABI_STACK_PROTECTED_ZONE 512
 #define __STK_REG(i)   (112 + ((i)-14)*8)
 #define STK_REG(i)     __STK_REG(__REG_##i)
 #define STK_GOT		24
@@ -103,6 +123,11 @@
 #define SPRN_SDR1       0x019           /* HTAB base. */
 #define SPRN_DAR        0x013           /* Data Adress Register. */
 #define SPRN_DSISR      0x012           /* Data Storage Interrupt Status */
+
+#define DSISR_NOT_MAPPED_LG    (63 - 33)
+#define DSISR_NOT_MAPPED       __MASK(DSISR_NOT_MAPPED_LG)
+#define SRR1_ISI_NOT_MAPPED_LG (63 -33)
+#define SRR1_ISI_NOT_MAPPED    __MASK(SRR1_ISI_NOT_MAPPED_LG)
 
 #define LPCR_ILE_LG     (63 - 38)             /* Interrupt Little Endian */
 #define LPCR_ILE        __MASK(LPCR_ILE_LG)
@@ -216,8 +241,10 @@
  */
 #define PAGE_SHIFT       12
 #define PAGE_SIZE        (1 << PAGE_SHIFT)
+#define PAGE_MASK        (~(PAGE_SIZE - 1))
 #define PAGE_SHIFT_16M   24
 #define PAGE_SIZE_16M    (1 << PAGE_SHIFT_16M)
+#define PAGE_MASK_16M    (~(PAGE_SIZE_16M - 1))
 
 /*
  * PTE bits.

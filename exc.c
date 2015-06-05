@@ -26,7 +26,7 @@
 #include <string.h>
 #include <kpcr.h>
 #include <exc.h>
-
+#include <mem.h>
 
 /*
  * ppc64le_hello has no concept of threads or per-thread exception stacks,
@@ -46,23 +46,36 @@ exc_handler(eframe_t *frame)
 		goto bad;
 	}
 
-	if (frame->vec == EXC_ISEG ||
-	    frame->vec == EXC_ISI) {
-		printk("Instruction MMU fault at 0x%x, trying without MMU\n",
-		       frame->hsrr0);
-		frame->hsrr1 &= ~(MSR_IR | MSR_DR);
-		exc_rfi(frame);
+	/*
+	 * Handle instruction storage faults within the HV address
+	 * region (which is direct-mapped to 0). When the MMU is off,
+	 * the translation happens automatically.
+	 */
+	if (frame->vec == EXC_ISI) {
+		if (frame->hsrr0 >= HV_ASPACE &&
+		    (frame->hsrr1 & SRR1_ISI_NOT_MAPPED) != 0) {
+			mmu_map(frame->hsrr0 & PAGE_MASK,
+				ptr_2_ra((void *) (frame->hsrr0 & PAGE_MASK)),
+				PP_RWXX,
+				PAGE_4K);
+			exc_rfi(frame);
+		}
 	}
 
-	if (frame->vec == EXC_DSEG ||
-	    frame->vec == EXC_DSI) {
-		printk("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x),"
-		       " trying without MMU\n",
-		       frame->hsrr0,
-		       get_DAR(),
-		       get_DSISR());
-		frame->hsrr1 &= ~(MSR_IR | MSR_DR);
-		exc_rfi(frame);
+	/*
+	 * Handle data storage faults within the HV address
+	 * region (which is direct-mapped to 0). When the MMU is off,
+	 * the translation happens automatically.
+	 */
+	if (frame->vec == EXC_DSI) {
+		if (get_DAR() >= HV_ASPACE &&
+		    (get_DSISR() & DSISR_NOT_MAPPED) != 0) {
+			mmu_map(get_DAR() & PAGE_MASK,
+				ptr_2_ra((void *) (get_DAR() & PAGE_MASK)),
+				PP_RWXX,
+				PAGE_4K);
+			exc_rfi(frame);
+		}
 	}
 
 	if (frame->vec == EXC_DEC) {
@@ -89,9 +102,10 @@ exc_handler(eframe_t *frame)
 			 * In this lame example we piggy-back onto
 			 * the stack used by main() (as it won't be running
 			 * anyway until we return to it via
-			 * test_syscall(0x1337, 0)).
+			 * test_syscall(0x1337, 0)), taking care to
+			 * avoid clobbering the red and system zones.
 			 */
-			kpcr_get()->kern_sp = frame->r1;
+			kpcr_get()->kern_sp = frame->r1 - ABI_STACK_PROTECTED_ZONE;
 			ret_from_us = *frame;
 			printk("returning to user code\n");
 			exc_rfi((eframe_t *) frame->r4);
@@ -102,6 +116,22 @@ exc_handler(eframe_t *frame)
 
 		frame->r3 = frame->r3 << 16 | frame->r4;
 		exc_rfi(frame);
+	}
+
+	if (frame->vec == EXC_ISEG ||
+	    frame->vec == EXC_ISI) {
+		printk("Instruction MMU fault at 0x%x\n",
+		       frame->hsrr0);
+		goto bad;
+	}
+
+	if (frame->vec == EXC_DSEG ||
+	    frame->vec == EXC_DSI) {
+		printk("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x)\n",
+		       frame->hsrr0,
+		       get_DAR(),
+		       get_DSISR());
+		goto bad;
 	}
 
 bad:
@@ -182,7 +212,8 @@ exc_init(void)
 	/*
 	 * Exception stack.
 	 */
-	kpcr_get()->unrec_sp = (uint64_t) &_unrec_stack_top - sizeof(eframe_t);
+	kpcr_get()->unrec_sp = (uint64_t) mem_alloc(PAGE_SIZE, PAGE_SIZE) +
+		PAGE_SIZE  - sizeof(eframe_t);
 	printk("Unrecoverable exception stack top @ 0x%x\n",
 	       kpcr_get()->unrec_sp);
 

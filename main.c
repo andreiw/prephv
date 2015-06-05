@@ -113,7 +113,7 @@ cpu_init(void *fdt)
 	kpcr_get()->tb_freq = tb_freq;
 
 	exc_init();
-	mmu_init((uint64_t) &_end - (uint64_t) &_start);
+	mmu_init((ea_t) &_end - (ea_t) &_start);
 }
 
 
@@ -135,7 +135,8 @@ dump_nodes(void *fdt)
 	printk("FDT version: %d\n", fdt_version(fdt));
 
 	for (i = 0; i < numrsv; i++) {
-		uint64_t addr, size;
+		ra_t addr;
+		length_t size;
 		if (fdt_get_mem_rsv(fdt, i, &addr, &size) != 0) {
 			break;
 		}
@@ -418,8 +419,9 @@ menu(void *fdt)
 
 
 void
-c_main(void *fdt)
+c_main(ra_t fdt_ra)
 {
+	void *fdt;
 	uint64_t len = cpu_to_be64(sizeof(HELLO_OPAL));
 	/*
 	 * Write using sim interface (simpler).
@@ -441,7 +443,8 @@ c_main(void *fdt)
 	printk("KPCR   = %p\n", kpcr_get());
 	printk("TOC    = %p\n", kpcr_get()->toc);
 	printk("OPAL   = %p\n", kpcr_get()->opal_base);
-	printk("FDT    = %p\n", fdt);
+	printk("FDT    = 0x%x\n", fdt_ra);
+	fdt = ra_2_ptr(fdt_ra);
 
 	cpu_init(fdt);
 	menu(fdt);

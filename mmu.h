@@ -33,9 +33,30 @@ static inline ra_t
 ptr_2_ra(void *addr) {
 	ea_t ea = (ea_t) addr;
 
-	BUG_ON((ea & HV_ASPACE) == 0, "must only pass HV addresses");
+	/*
+	 * If we're in real mode, then bit 63 of EA is aliased to 0.
+	 * If MMU is enabled, then we map EA 1TB @ 0x8000000000000000 to RA 0x0.
+	 *
+	 * I call EAs with bit 63 set HV addresses.
+	 *
+	 * Kernel code is linked to addresses in 0x8000000000000000 and all memory
+	 * is always accessed using HV addresses.
+	 */
+	BUG_ON(ea < HV_ASPACE, "ea 0x%x is not an HV address", ea);
 	return ea & ~HV_ASPACE;
 }
+
+
+static inline void *
+ra_2_ptr(ra_t ra) {
+	/*
+	 * HV_ASPACE is a feature of EAs, not RA. But
+	 * catch EAs being passed in.
+	 */
+	BUG_ON(ra >= HV_ASPACE, "ra 0x%x looks like an EA (HV address)", ra);
+	return (void *) (ra | HV_ASPACE);
+}
+
 
 typedef enum {
   PAGE_4K,

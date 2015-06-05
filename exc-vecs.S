@@ -120,9 +120,11 @@ exc_cont:
 	bne-	exc_with_kern_sp
 	/*
 	 * From kernel mode, continue using whatever
-	 * stack we had before the exception.
+	 * stack we had before the exception, paying
+	 * attention the protected zone.
 	 */
 	mfspr	r2, SPRN_HSPRG1
+	subi	r2, r2, ABI_STACK_PROTECTED_ZONE
 	b	copy_stashed
 exc_with_kern_sp:
 	/*
@@ -133,11 +135,11 @@ exc_with_kern_sp:
 	ld	r2, KPCR_R(kern_sp, r2)
 copy_stashed:
 	/*
-	 * Copy stashed vec, r0, r2, hsrr0
-	 * and hsrr1 values from the unrecoverable
-	 * stack pointed to by r1 to the kernel stack
-	 * pointed to by r2.
+	 * Copy stashed vec, r0, r2, hsrr0 and hsrr1 values.
 	 *
+	 * r0 - scratch
+	 * r1 - unrecoverable stack
+	 * r2 - chosen kernel stack
 	 * r0 is scratch.
 	 */
 	subi	r2, r2, eframe_sizeof

@@ -32,6 +32,19 @@
 _GLOBAL(_start)
 	FIXUP_ENDIAN
 
+/*
+ * Set bit 63 (bit 0 in IBM-speak) in PC, so as to run
+ * at the HV alias RM address.
+ */
+	bl	1f
+1:	mflr	r1
+	addi	r1, r1, 2f-1b
+	li	r0, 1
+	insrdi	r1, r0, 1, 0
+	mtlr	r1
+	blr
+2:
+
 	/*
 	 * r3 - fdt
 	 * r8 - OPAL base
