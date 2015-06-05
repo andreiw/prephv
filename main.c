@@ -68,9 +68,40 @@ dump_props(void *fdt, int node, int depth)
 			for  (i = 0; i < depth; i++) {
 				printk(" ");
 			}
-			printk("%s: 0x%x@0x%x\n", n,
-			       fdt32_to_cpu(prop->len),
-			       prop->data);
+
+			if (fdt32_to_cpu(prop->len) == 0) {
+				printk("%s: TRUE\n", n);
+			} else if (!strcmp(n, "compatible") ||
+				   !strcmp(n, "bootargs") ||
+				   !strcmp(n, "linux,stdout-path") ||
+				   !strcmp(n, "epapr-version") ||
+				   !strcmp(n, "model") ||
+				   !strcmp(n, "device_type")
+				) {
+				printk("%s: %s\n", n, prop->data);
+			} else if (!strcmp(n, "#address-cells") ||
+				   !strcmp(n, "#size-cells") ||
+				   !strcmp(n, "#bytes") ||
+				   !strcmp(n, "l2-cache-size") ||
+				   !strcmp(n, "slb-size") ||
+				   !strcmp(n, "timebase-frequency") ||
+				   !strcmp(n, "i-cache-size") ||
+				   !strcmp(n, "i-cache-sets") ||
+				   !strcmp(n, "i-cache-line-size") ||
+				   !strcmp(n, "i-cache-block-size") ||
+				   !strcmp(n, "d-cache-size") ||
+				   !strcmp(n, "d-cache-sets") ||
+				   !strcmp(n, "d-cache-line-size") ||
+				   !strcmp(n, "d-cache-block-size") ||
+				   !strcmp(n, "linux,phandle") ||
+				   !strcmp(n, "phandle")) {
+				printk("%s: 0x%x\n", n,
+				       be32_to_cpu(*(uint32_t *) prop->data));
+			} else {
+				printk("%s: 0x%x@0x%x\n", n,
+				       fdt32_to_cpu(prop->len),
+				       prop->data);
+			}
 		}
 
 		offset = nextoffset;
