@@ -295,6 +295,16 @@ test_mmu_16mb(void)
 		mmu_enable();
 	}
 
+	/*
+	 * Because we create the mapping in the identity segment, which has
+	 * base page size = 4K, 16M pages are achieved using MPSS. This is
+	 * better than not using MPSS and manually populating 4K entries,
+	 * becase at the TLB and ERAT level there should be only one entry.
+	 *
+	 * On the sim, of course, MPSS is still worse than using a segment
+	 * where the base page size = 16M, because we need to do more
+	 * oh so glacially slow PTE updates.
+	 */
 	printk("mapping two EAs to same RA - on a sim this will take a while...\n");
 	mmu_map((ea_t) ea, ptr_2_ra(p1), PP_RWXX, PAGE_16M);
 	printk("mapped 0x%x to 0x%x as 16M\n", ea, p1);
@@ -311,7 +321,7 @@ test_mmu_16mb(void)
 			break;
 		}
 	}
-	printk("16M mappings %swork\n", !good ? "don't " : "");
+	printk("16M MPSS mappings %swork\n", !good ? "don't " : "");
 	if (!good) {
 		goto out;
 	}
@@ -342,7 +352,7 @@ test_mmu(void)
 	 * 1TB - 4K.
 	 */
 	int res;
-	ra_t ra;
+	void *source;
 	ea_t ea = TB(1) - PAGE_SIZE;
 	int en = mmu_enabled();
 
@@ -350,17 +360,18 @@ test_mmu(void)
 		mmu_enable();
 	}
 
-	ra = ptr_2_ra(&_start);
-	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
-	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
-	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
-	       res ? "in" : "");
+	source = (void *) &_start;
+	mmu_map(ea, ptr_2_ra(source), PP_RWXX, PAGE_4K);
+	res = memcmp((void *) ea, source, PAGE_SIZE);
+	printk("mapped 0x%x to 0x%x %scorrectly\n", ea,
+	       ptr_2_ra(source), res ? "in" : "");
 	mmu_unmap(ea, PAGE_4K);
-	ra = ptr_2_ra(&_start) + PAGE_SIZE;
-	mmu_map(ea, ra, PP_RWXX, PAGE_4K);
-	res = memcmp((void *) ea, (void *) ra, PAGE_SIZE);
-	printk("mapped 0x%x to 0x%x %scorrectly\n", ea, ra,
-	       res ? "in" : "");
+
+	source = (void *) (((ea_t) &_start) + PAGE_SIZE);
+	mmu_map(ea, ptr_2_ra(source), PP_RWXX, PAGE_4K);
+	res = memcmp((void *) ea, source , PAGE_SIZE);
+	printk("mapped 0x%x to 0x%x %scorrectly\n", ea,
+	       ptr_2_ra(source), res ? "in" : "");
 	mmu_unmap(ea, PAGE_4K);
 
 	if (!en) {

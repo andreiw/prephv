@@ -26,10 +26,13 @@ What you get:
   linked at 0x80000000200XXXXX). The idea being that the code
   will access physical RAM and its own data structures solely
   using the HV addresses.
-- Very basic MMU setup. 1:1 EA->VA @ 0x0 mapping using a 1TB
-  SLB entry, and a EA->VA SLBE covering 1TB for the HV alias
-  range. 1:1 VA->RA mapping and mixed page support (4K and 16M).
-  Base page size is 4K, and actual page size is 4K and 16M.
+- SLB setup: demonstrates 1T segments with 4K base page
+  and 16M base page size. One segment (slot = 0) is used
+  to back the HV alias addresses with 16M pages. Another
+  segment maps EA to VA 1:1 using 4K pages.
+- Very basic HTAB setup. Mapping and unmapping for pages
+  in the 4K and 16M segments, supporting MPSS (16M pages
+  in the 4K segment). No secondary PTEG. No eviction support.
   Not SMP safe. Any access within the HV alias addresses
   get mapped in. Any faults to other unmapped locations are
   crashes, as addresses below 0x8000000000000000 should only
@@ -68,41 +71,41 @@ You're looking for output like -
 20296464: (20296462): Hello Mambo!
 20297277: (20297275): Hello OPAL!
 20297940: (20297938): _start = 0x8000000020010000
-20317142: (20316532): _bss   = 0x8000000020018F38
+20317142: (20316532): _bss   = 0x8000000020019B38
 20336344: (20335126): _stack = 0x800000002001A000
-20355546: (20353720): _end   = 0x800000002001D000
-20374757: (20372323): KPCR   = 0x8000000020018F70
-20393969: (20390927): TOC    = 0x8000000020020F00
+20355546: (20353720): _end   = 0x800000002001B000
+20374757: (20372323): KPCR   = 0x8000000020019B70
+20393969: (20390927): TOC    = 0x8000000020021B00
 20413181: (20409531): OPAL   = 0x30000000
 20426878: (20422924): FDT    = 0x303039F0
-20496879: (20492621): SLB size = 0x20
-20540378: (20536044): TB freq = 512000000
-20558253: (20553577): [20553780000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20567195: (20562519): [20559493000,3] SLW: Not found on chip 0
-20571432: (20566756): [20567448000,3] ELOG: Error getting buffer to log error
-20572198: (20567522): OPAL claims no HILE supported, pretend to know better...
-20609089: (20604413): Unrecoverable exception stack top @ 0x800000002001BEC8
-20649004: (20643715): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x8000000020040000
-20823831: (20817476): SLB entries:
-20832769: (20826376): 1: E 0x8000000008000000 V 0x4000000000000400
-20863832: (20856185): 2: E 0x8000000 V 0x4000000000000400
+20538086: (20533828): SLB size = 0x20
+20581585: (20577251): TB freq = 512000000
+20599461: (20594785): [20594988000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20608403: (20603727): [20600701000,3] SLW: Not found on chip 0
+20612640: (20607964): [20608656000,3] ELOG: Error getting buffer to log error
+20613406: (20608730): OPAL claims no HILE supported, pretend to know better...
+20650328: (20645652): Unrecoverable exception stack top @ 0x800000002001BEC8
+20690244: (20684955): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x8000000020040000
+20865101: (20858746): SLB entries:
+20874014: (20867621): 0: E 0x8000000008000000 V 0x4000000001000500
+20905077: (20897430): 1: E 0x8000000 V 0x4000000000000400
 
-20890603: (20882082): Pick your poison:
-20902609: (20894088): Choices: (MMU = disabled):
-20919920: (20911399):    (d) 5s delay
-20930141: (20921620):    (e) test exception
-20944184: (20935663):    (n) test nested exception
-20962686: (20954165):    (f) dump FDT
-20972907: (20964386):    (M) enable MMU
-20984402: (20975881):    (m) disable MMU
-20996534: (20988013):    (t) test MMU
-21006755: (20998234):    (T) test MMU 16mb pages
-21023983: (21015462):    (u) test non-priviledged code
-21045033: (21036512):    (I) enable ints
-21057165: (21048644):    (i) disable ints
-21069934: (21061413):    (H) enable HV dec
-21083340: (21074819):    (h) disable HV dec
-21097383: (21088862):    (q) poweroff
+20989235: (20980711): Pick your poison:
+21001241: (20992717): Choices: (MMU = disabled):
+21018552: (21010028):    (d) 5s delay
+21028773: (21020249):    (e) test exception
+21042816: (21034292):    (n) test nested exception
+21061318: (21052794):    (f) dump FDT
+21071539: (21063015):    (M) enable MMU
+21083034: (21074510):    (m) disable MMU
+21095166: (21086642):    (t) test MMU
+21105387: (21096863):    (T) test MMU 16mb pages
+21122615: (21114091):    (u) test non-priviledged code
+21143665: (21135141):    (I) enable ints
+21155797: (21147273):    (i) disable ints
+21168566: (21160042):    (H) enable HV dec
+21181972: (21173448):    (h) disable HV dec
+21196015: (21187491):    (q) poweroff
 
 You can interact with this:
 ---------------------------

@@ -191,21 +191,32 @@
  * and paging is a PITA to set up early in the game (and low addresses suck,
  * esp. for a hypervisor).
  */
-#define HV_ASPACE 0x8000000000000000UL
+#define HV_ASPACE           0x8000000000000000UL
 
 /*
  * GNU tools somehow don't know about the 2-register tlbie.
  *
  * This is awful.
  */
-#define PPC_INST_TLBIE 0x7c000264
-#define ___PPC_RS(s) (((s) & 0x1f) << 21)
-#define ___PPC_RB(b) (((b) & 0x1f) << 11)
-#define PPC_TLBIE(lp,a) S(.long PPC_INST_TLBIE |	\
-                          ___PPC_RB(a) | ___PPC_RS(lp))
-#define TLBIE_RB_1TB      (1 << 9)
-#define TLBIE_RB_L        (1 << 0)
-#define TLBIE_RB_LP_SHIFT (12)
+#define PPC_INST_TLBIE      0x7c000264
+#define ___PPC_RS(s)        (((s) & 0x1f) << 21)
+#define ___PPC_RB(b)        (((b) & 0x1f) << 11)
+#define PPC_TLBIE(lp,a)     S(.long PPC_INST_TLBIE |	\
+                              ___PPC_RB(a) | ___PPC_RS(lp))
+#define TLBIE_RB_1TB        (1 << 9)
+#define TLBIE_RB_L          (1 << 0)
+#define TLBIE_RB_AP_SHIFT   (7)
+#define TLBIE_RB_AP_4K_16M  (0x4)
+#define TLBIE_RB_LP_SHIFT   (19)
+#define TLBIE_RB_LP_16M_16M (0)
+
+/*
+ * Tlbia emulation.
+ */
+#define TLBIEL_MAX_SETS         (1 << (51 - 40 + 1))
+#define TLBIEL_SET_SHIFT        (63-51)
+#define TLBIEL_IS_ALL_IN_SET    0x3
+#define TLBIEL_IS_SHIFT         (64-53)
 
 /*
  * Segmentation defines. We only care about 1T segments.
@@ -220,8 +231,12 @@
 
 /* Bits in the SLB VSID word */
 #define SLB_VSID_SHIFT_1T       24
-#define SLB_VSID_B_1T           (0x4000000000000000)
-#define SLB_VSID_KP             (0x0000000000000400)
+#define SLB_VSID_B_1T           (1UL << (63-1))
+#define SLB_VSID_KP             (1UL << (63-53))
+#define SLB_VSID_L              (1UL << (63-55))
+#define SLB_VSID_LP_SHIFT       (63-58)
+#define SLB_VSID_LP_16M         0
+#define SLB_VSID_LP_4K          0
 
 /*
  * HTAB support.
@@ -284,7 +299,9 @@
  *
  * See P103 of the POWER8 Processor User's Manual for the Single-Chip Module
  */
-#define PTE_R_4K_16M           0x38
+#define PTE_R_LP_4K_4K         0
+#define PTE_R_LP_4K_16M        0x38
+#define PTE_R_LP_16M_16M       0
 
 /* Protection values for PP (assumes Ks=0, Kp=1) */
 #define PP_RWXX 0                 /* Supervisor read/write, User none */

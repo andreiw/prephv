@@ -54,10 +54,10 @@ exc_handler(eframe_t *frame)
 	if (frame->vec == EXC_ISI) {
 		if (frame->hsrr0 >= HV_ASPACE &&
 		    (frame->hsrr1 & SRR1_ISI_NOT_MAPPED) != 0) {
-			mmu_map(frame->hsrr0 & PAGE_MASK,
-				ptr_2_ra((void *) (frame->hsrr0 & PAGE_MASK)),
+			mmu_map(frame->hsrr0 & PAGE_MASK_16M,
+				ptr_2_ra((void *) (frame->hsrr0 & PAGE_MASK_16M)),
 				PP_RWXX,
-				PAGE_4K);
+				PAGE_16M);
 			exc_rfi(frame);
 		}
 	}
@@ -70,10 +70,10 @@ exc_handler(eframe_t *frame)
 	if (frame->vec == EXC_DSI) {
 		if (get_DAR() >= HV_ASPACE &&
 		    (get_DSISR() & DSISR_NOT_MAPPED) != 0) {
-			mmu_map(get_DAR() & PAGE_MASK,
-				ptr_2_ra((void *) (get_DAR() & PAGE_MASK)),
+			mmu_map(get_DAR() & PAGE_MASK_16M,
+				ptr_2_ra((void *) (get_DAR() & PAGE_MASK_16M)),
 				PP_RWXX,
-				PAGE_4K);
+				PAGE_16M);
 			exc_rfi(frame);
 		}
 	}
