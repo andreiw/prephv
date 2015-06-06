@@ -454,10 +454,13 @@ c_main(ra_t fdt_ra)
 {
 	void *fdt;
 	uint64_t len = cpu_to_be64(sizeof(HELLO_OPAL));
+
+#ifndef CONFIG_NOSIM
 	/*
 	 * Write using sim interface (simpler).
 	 */
 	mambo_write(HELLO_MAMBO, sizeof(HELLO_MAMBO));
+#endif
 
 	/*
 	 * Write using firmware interface.
