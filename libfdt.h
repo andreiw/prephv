@@ -746,6 +746,42 @@ int fdt_node_check_compatible(const void *fdt, int nodeoffset,
 int fdt_node_offset_by_compatible(const void *fdt, int startoffset,
 				  const char *compatible);
 
+/**
+ * fdt_node_offset_by_dtype - find nodes with a given 'device_type' value
+ * @fdt: pointer to the device tree blob
+ * @startoffset: only find nodes after this offset
+ * @dtype: 'compatible' string to match against
+ *
+ * fdt_node_offset_by_dtype() returns the offset of the first
+ * node after startoffset, which has a 'device_type' property which
+ * lists the given type string; or if startoffset is -1, the
+ * very first such node in the tree.
+ *
+ * To iterate through all nodes matching the criterion, the following
+ * idiom can be used:
+ *	offset = fdt_node_offset_by_dtype(fdt, -1, "cpu");
+ *	while (offset != -FDT_ERR_NOTFOUND) {
+ *		// other code here
+ *		offset = fdt_node_offset_by_dtype(fdt, offset, "cpu");
+ *	}
+ *
+ * Note the -1 in the first call to the function, if 0 is used here
+ * instead, the function will never locate the root node, even if it
+ * matches the criterion.
+ *
+ * returns:
+ *	structure block offset of the located node (>= 0, >startoffset),
+ *		 on success
+ *	-FDT_ERR_NOTFOUND, no node matching the criterion exists in the
+ *		tree after startoffset
+ * 	-FDT_ERR_BADOFFSET, nodeoffset does not refer to a BEGIN_NODE tag
+ *	-FDT_ERR_BADMAGIC,
+ *	-FDT_ERR_BADVERSION,
+ *	-FDT_ERR_BADSTATE,
+ *	-FDT_ERR_BADSTRUCTURE, standard meanings
+ */
+int fdt_node_offset_by_dtype(const void *fdt, int startoffset,
+                             const char *dtype);
 
 /**********************************************************************/
 /* Debugging / informational functions                                */

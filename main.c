@@ -117,7 +117,7 @@ cpu_init(void *fdt)
 	unsigned int slb_size;
 	unsigned int tb_freq;
 
-	cpu0_node = fdt_path_offset(fdt, "/cpus/cpu@0");
+	cpu0_node = fdt_node_offset_by_dtype(fdt, -1, "cpu");
 	if (cpu0_node < 0) {
 		printk("CPU0 not found?\n");
 		return;
