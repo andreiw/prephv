@@ -25,6 +25,7 @@
 #include <ppc.h>
 #include <string.h>
 #include <kpcr.h>
+#include <time.h>
 #include <exc.h>
 #include <mem.h>
 
@@ -79,8 +80,7 @@ exc_handler(eframe_t *frame)
 	}
 
 	if (frame->vec == EXC_DEC) {
-		set_DEC(DEC_DISABLE);
-		printk("decrementer!\n");
+		time_handle();
 		exc_rfi(frame);
 	}
 
@@ -156,9 +156,19 @@ bad:
 
 
 void
+exc_restore_ee(exc_flags_t flags)
+{
+	mtmsrd(mfmsr() | (flags & MSR_EE), 1);
+}
+
+
+exc_flags_t
 exc_disable_ee(void)
 {
+	exc_flags_t flags = mfmsr() & MSR_EE;
+
 	mtmsrd(mfmsr() & ~MSR_EE, 1);
+	return flags;
 }
 
 

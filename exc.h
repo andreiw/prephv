@@ -64,10 +64,13 @@ typedef struct eframe_s
 	uint64_t hsrr1;
 } eframe_t;
 
+typedef uint64_t exc_flags_t;
+
 void exc_init(void);
 void exc_rfi(eframe_t *frame);
-void exc_disable_ee(void);
+exc_flags_t exc_disable_ee(void);
 void exc_enable_ee(void);
+void exc_restore_ee(exc_flags_t flags);
 void exc_enable_hdec(void);
 void exc_disable_hdec(void);
 

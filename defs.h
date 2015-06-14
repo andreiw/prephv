@@ -43,6 +43,12 @@
 #define S(...) _S(__VA_ARGS__)
 #define _S(...) #__VA_ARGS__
 
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
+
+#define offsetof(TYPE, MEMBER) ((length_t) &((TYPE *)0)->MEMBER)
+
 #define MB(x) (1UL * x * 1024 * 1024)
 #define TB(x) (1UL * x * 1024 * 1024 * 1024 * 1024)
 

@@ -21,7 +21,8 @@ What you get:
 - Taking and returning from exceptions, handling
   unrecoverable/nested exceptions.
 - Timebase (i.e. the "timestamp counter"), decrementer
-  and hypervisor decrementer manipulation.
+  and hypervisor decrementer manipulation with some basic timer
+  support (done for periodic callbacks into OPAL).
 - Running at HV alias addresses (loaded at 0x00000000200XXXXX,
   linked at 0x80000000200XXXXX). The idea being that the code
   will access physical RAM and its own data structures solely
@@ -57,6 +58,10 @@ You will need the POWER8 Functional Simulator set up. Good directions: https://w
 
 $ make
 
+In the unlikely event you're trying this on real hardware.
+
+$ make CONFIG_NOSIM=1
+
 Running
 =======
 
@@ -67,49 +72,49 @@ don't like xterm, feel free to change it in ppc64le_hello.tcl.
 
 You're looking for output like -
 ...
-20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
-20296464: (20296462): Hello Mambo!
-20297277: (20297275): Hello OPAL!
-20297940: (20297938): _start = 0x8000000020010000
-20317142: (20316532): _bss   = 0x8000000020019B38
-20336344: (20335126): _stack = 0x800000002001A000
-20355546: (20353720): _end   = 0x800000002001B000
-20374757: (20372323): KPCR   = 0x8000000020019B70
-20393969: (20390927): TOC    = 0x8000000020021B00
-20413181: (20409531): OPAL   = 0x30000000
-20426878: (20422924): FDT    = 0x303039F0
-20538086: (20533828): SLB size = 0x20
-20581585: (20577251): TB freq = 512000000
-20599461: (20594785): [20594988000,3] OPAL: Trying a CPU re-init with flags: 0x2
-20608403: (20603727): [20600701000,3] SLW: Not found on chip 0
-20612640: (20607964): [20608656000,3] ELOG: Error getting buffer to log error
-20613406: (20608730): OPAL claims no HILE supported, pretend to know better...
-20650328: (20645652): Unrecoverable exception stack top @ 0x800000002001BEC8
-20690244: (20684955): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x8000000020040000
-20865101: (20858746): SLB entries:
-20874014: (20867621): 0: E 0x8000000008000000 V 0x4000000001000500
-20905077: (20897430): 1: E 0x8000000 V 0x4000000000000400
+20307706: (20307706): [20301137000,5] INIT: Starting kernel at 0x20010000, fdt at 0x30303a08 (size 0x13cc)
+20308235: (20308233): Hello Mambo!
+20309048: (20309046): Hello OPAL!
+20309711: (20309709): _start = 0x8000000020010000
+20328913: (20328303): _bss   = 0x800000002001A740
+20348115: (20346897): _stack = 0x800000002001B000
+20367317: (20365491): _end   = 0x800000002001C000
+20386528: (20384094): KPCR   = 0x800000002001A7E0
+20405740: (20402698): TOC    = 0x8000000020022700
+20424952: (20421302): OPAL   = 0x30000000
+20438649: (20434695): FDT    = 0x30303A08
+20549859: (20545601): SLB size = 0x20
+20593358: (20589024): TB freq = 512000000
+20611573: (20606897): [20607100000,3] OPAL: Trying a CPU re-init with flags: 0x2
+20620515: (20615839): [20612813000,3] SLW: Not found on chip 0
+20624752: (20620076): [20620768000,3] ELOG: Error getting buffer to log error
+20625518: (20620842): OPAL claims no HILE supported, pretend to know better...
+20662440: (20657764): Unrecoverable exception stack top @ 0x800000002001CEC8
+20702356: (20697067): HTAB (2048 ptegs, mask 0x7FF, size 0x40000) @ 0x8000000020040000
+20877213: (20870858): SLB entries:
+20886126: (20879733): 0: E 0x8000000008000000 V 0x4000000001000500
+20917189: (20909542): 1: E 0x8000000 V 0x4000000000000400
 
-20989235: (20980711): Pick your poison:
-21001241: (20992717): Choices: (MMU = disabled):
-21018552: (21010028):    (d) 5s delay
-21028773: (21020249):    (e) test exception
-21042816: (21034292):    (n) test nested exception
-21061318: (21052794):    (f) dump FDT
-21071539: (21063015):    (M) enable MMU
-21083034: (21074510):    (m) disable MMU
-21095166: (21086642):    (t) test MMU
-21105387: (21096863):    (T) test MMU 16mb pages
-21122615: (21114091):    (u) test non-priviledged code
-21143665: (21135141):    (I) enable ints
-21155797: (21147273):    (i) disable ints
-21168566: (21160042):    (H) enable HV dec
-21181972: (21173448):    (h) disable HV dec
-21196015: (21187491):    (q) poweroff
+21001608: (20993084): Pick your poison:
+21013614: (21005090): Choices: (MMU = disabled):
+21030925: (21022401):    (d) 5s delay
+21041146: (21032622):    (D) toggle 5s timer
+21055826: (21047302):    (e) test exception
+21069869: (21061345):    (n) test nested exception
+21088371: (21079847):    (f) dump FDT
+21098592: (21090068):    (M) enable MMU
+21110087: (21101563):    (m) disable MMU
+21122219: (21113695):    (t) test MMU
+21132440: (21123916):    (T) test MMU 16mb pages
+21149668: (21141144):    (u) test non-priviledged code
+21170718: (21162194):    (H) enable HV dec
+21184124: (21175600):    (h) disable HV dec
+21198167: (21189643):    (q) poweroff
 
 You can interact with this:
 ---------------------------
 (d) poll the timebase registers until 5s of real time pass.
+(D) toggles a periodic timer callback every 5s.
 (e) tests triggering a system call with parameter 0xfeed. The system
     call handler will return back parameter << 16 | 0xface, i.e. 0xfeedface.
 (n) tests triggering an exception from an exception by triggering
@@ -130,21 +135,18 @@ You can interact with this:
     support so the hand-off between code is messy. We enter user code via
     syscall, saving off the exception frame for a subsequent return from user
     code, again via syscall.
-(I) enables external interrupts (MSR.EE). You will start seeing decrementer
+(H) enables HV decrementer. You will start seeing hypervisor decrementer
     exceptions.
-(i) disables external interrupts. You will no longer see any decrementer
-    or HV decrementer exceptions.
-(H) enables HV decrementer. If exernal interrupts are on, you will start
-    seeting hypervisor decrementer exceptions.
 (h) disable HV decrementer. You will no longer see any HV decrementer
     exceptions.
 (q) will shut down the sim using the attn instruction.
 
 You should be able to run ppc64le_hello on a real Power8 machine via skiboot,
-but you will need to comment out the call to mambo_write, as that is a
-simulator-only facility.
+but you will need to build with CONFIG_NOSIM=1. It has been successfully done
+before, but that was before I wrote most of the MMU code ;-). See Daniel
+Axtens' blog post:
 
-Wish I had Power8 kit to play with ;-(.
+http://sthbrx.github.io/blog/2015/06/03/ppc64le-hello-on-real-hardware/
 
 Issues
 ======
@@ -158,11 +160,18 @@ A: From benh: "The way mambo (aka systemsim) works, there is no expectation
    inside ppc64le_hello.tcl. On my machine (i5-2410M) the TB should run
    about 1000 times faster than clock.
 
+Q: Something doesn't work on real hardware!
+A: Please file an issue and let me know! Daniel Axtens identified a number
+   of issues which I believe to have resolved, but I only get to play in
+   a simulator.
+
 TODO
 ====
 
 - Maybe show more callthru sim facilities? Like file I/O...
 - Spinlocks
+- AIL for interrupt vectors
+- SMP
 
 Resources
 =========

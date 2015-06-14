@@ -40,13 +40,15 @@
 #define OPAL_CONSOLE_READ        2
 #define OPAL_TERMINAL_0          0
 
+#define OPAL_POLL_EVENTS         10
+
 #define OPAL_REINIT_CPUS         70
 #define OPAL_REINIT_CPUS_HILE_LE (1 << 1)
 
 #ifndef __ASSEMBLY__
 #include <mmu.h>
 
-typedef int opal_return_t;
+typedef long opal_return_t;
 
 /*
  * I'm not obvious enough below - since OPAL runs with MMU off,
@@ -55,6 +57,7 @@ typedef int opal_return_t;
 opal_return_t opal_write(int terminal, ra_t len, ra_t buf);
 opal_return_t opal_read(int terminal, ra_t len, ra_t buf);
 opal_return_t opal_reinit_cpus(uint64_t flags);
+opal_return_t opal_poll_events(ra_t outstanding_event_mask);
 
 #endif /* __ASSEMBLY__ */
 #endif /* OPAL_H */

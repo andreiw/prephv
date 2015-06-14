@@ -51,12 +51,17 @@ opal_call_common:
 	mfmsr	r14;
 	li	r11, MSR_LE;
 	/*
-	 * MMU has to be off, as must external interrupts.
+	 * OPAL expects MMU and external interrupts off.
 	 */
 	ori	r11, r11, MSR_EE;
 	ori	r11, r11, MSR_IR;
 	ori	r11, r11, MSR_DR;
 	andc	r12, r14, r11;
+	/*
+	 * EE must be off before we touch HSRR1/HSRR0.
+	 */
+	li	r11, 0
+	mtmsrd	r11, 1
 	mtspr	SPRN_HSRR1, r12;
 	ld	r2, KPCR(opal_base);
 	ld	r12, KPCR(opal_entry);
@@ -88,3 +93,4 @@ _GLOBAL(opal_return)
 OPAL_CALL(opal_write, OPAL_CONSOLE_WRITE)
 OPAL_CALL(opal_read, OPAL_CONSOLE_READ)
 OPAL_CALL(opal_reinit_cpus, OPAL_REINIT_CPUS)
+OPAL_CALL(opal_poll_events, OPAL_POLL_EVENTS)

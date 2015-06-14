@@ -22,6 +22,19 @@
 #define TIME_H
 
 #include <kpcr.h>
+#include <list.h>
+
+struct time_req_s;
+typedef bool_t (*time_cb)(struct time_req_s *t);
+
+typedef struct time_req_s
+{
+	struct list_head link;
+	char *name;
+	void *ctx;
+	uint64_t when;
+	time_cb cb;
+} time_req_t;
 
 static inline uint64_t
 secs_to_tb(uint64_t secs)
@@ -30,11 +43,40 @@ secs_to_tb(uint64_t secs)
 }
 
 static inline uint64_t
+ms_to_tb(uint64_t ms)
+{
+	return ms * (kpcr_get()->tb_freq / 1000);
+}
+
+static inline uint64_t
 tb_to_secs(uint64_t tb)
 {
 	return tb / kpcr_get()->tb_freq;
 }
 
+static inline uint64_t
+tb_to_ms(uint64_t tb)
+{
+	return tb / (kpcr_get()->tb_freq / 1000);
+}
+
+void time_init(void);
+void time_handle(void);
 void time_delay(uint64_t delay);
+void time_prep(uint64_t when, time_cb cb, char *n, void *ctx, time_req_t *t);
+void time_enqueue(time_req_t *t);
+void time_dequeue(time_req_t *t);
+
+static inline void
+time_prep_s(uint64_t secs, time_cb cb, char *n, void *ctx, time_req_t *t)
+{
+	return time_prep(secs_to_tb(secs) + mftb(), cb, n, ctx, t);
+}
+
+static inline void
+time_prep_ms(uint64_t ms, time_cb cb, char *n, void *ctx, time_req_t *t)
+{
+	return time_prep(ms_to_tb(ms) + mftb(), cb, n, ctx, t);
+}
 
 #endif /* TIME_H */

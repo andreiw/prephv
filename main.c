@@ -39,6 +39,7 @@
 #define HELLO_OPAL "Hello OPAL!\n"
 
 kpcr_t kpcr;
+static time_req_t opal_timer;
 
 
 static void
@@ -109,21 +110,32 @@ dump_props(void *fdt, int node, int depth)
 }
 
 
+static bool_t
+opal_timer_cb(time_req_t *t) {
+	opal_poll_events(0);
+
+	/* Recurring timer. */
+	t->when = ms_to_tb((uint64_t) t->ctx) + mftb();
+	return TRUE;
+}
+
+
 static void
 cpu_init(void *fdt)
 {
-	int cpu0_node;
-	const uint32_t *be32_data;
+	int node;
 	unsigned int slb_size;
 	unsigned int tb_freq;
+	const uint32_t *be32_data;
+	uint64_t opal_ms = 0;
 
-	cpu0_node = fdt_node_offset_by_dtype(fdt, -1, "cpu");
-	if (cpu0_node < 0) {
+	node = fdt_node_offset_by_dtype(fdt, -1, "cpu");
+	if (node < 0) {
 		printk("CPU0 not found?\n");
 		return;
 	}
 
-	be32_data = fdt_getprop(fdt, cpu0_node, "slb-size", NULL);
+	be32_data = fdt_getprop(fdt, node, "slb-size", NULL);
 	if (be32_data != NULL) {
 		slb_size = be32_to_cpu(*be32_data);
 	} else {
@@ -133,7 +145,7 @@ cpu_init(void *fdt)
 	printk("SLB size = 0x%x\n", slb_size);
 	kpcr_get()->slb_size = slb_size;
 
-	be32_data = fdt_getprop(fdt, cpu0_node, "timebase-frequency", NULL);
+	be32_data = fdt_getprop(fdt, node, "timebase-frequency", NULL);
 	if (be32_data != NULL) {
 		tb_freq = be32_to_cpu(*be32_data);
 	} else {
@@ -143,8 +155,36 @@ cpu_init(void *fdt)
 	printk("TB freq = %u\n", tb_freq);
 	kpcr_get()->tb_freq = tb_freq;
 
+	/*
+	 * We might need to call back into OPAL periodically.
+	 * On real HW this (might?) prevent a watchdog-related reboot.
+	 */
+	node = fdt_node_check_compatible(fdt, -1, "ibm,opal-v2");
+	if (node >= 0) {
+		be32_data = fdt_getprop(fdt, node, "ibm,heartbeat-ms", NULL);
+		if (be32_data != NULL) {
+			opal_ms = be32_to_cpu(*be32_data);
+		}
+	}
+
 	exc_init();
 	mmu_init((ea_t) &_end - (ea_t) &_start);
+	time_init();
+
+	if (opal_ms != 0) {
+		/*
+		 * We might need to call back into OPAL periodically.
+		 * On real HW this (might?) prevent a watchdog-related reboot.
+		 */
+		time_prep_ms(opal_ms, opal_timer_cb, "opal",
+			     (void *) opal_ms, &opal_timer);
+		time_enqueue(&opal_timer);
+	}
+
+	/*
+	 * Enable interrupts.
+	 */
+	exc_enable_ee();
 }
 
 
@@ -380,7 +420,36 @@ test_mmu(void)
 }
 
 
-void
+static bool_t
+timer_cb(time_req_t *t)
+{
+	printk("Timer '%s' fired!\n", t->name);
+
+	/* This is a recurring timer. */
+	t->when = secs_to_tb((uint64_t) t->ctx) + mftb();
+	return TRUE;
+}
+
+
+static void
+toggle_timer(void)
+{
+	static time_req_t t;
+	static bool_t on = FALSE;
+
+	if (!on) {
+		time_prep_s(5, timer_cb, "5s", (void *) 5, &t);
+		printk("Enabling timer callback\n");
+		time_enqueue(&t);
+	} else {
+		printk("Disabling timer callback\n");
+		time_dequeue(&t);
+	}
+
+	on ^= TRUE;
+}
+
+static void
 menu(void *fdt)
 {
 	int c = 0;
@@ -393,6 +462,7 @@ menu(void *fdt)
 		if (c != NO_CHAR) {
 			printk("Choices: (MMU = %s):\n"
 			       "   (d) 5s delay\n"
+			       "   (D) toggle 5s timer\n"
 			       "   (e) test exception\n"
 			       "   (n) test nested exception\n"
 			       "   (f) dump FDT\n"
@@ -401,8 +471,6 @@ menu(void *fdt)
 			       "   (t) test MMU\n"
 			       "   (T) test MMU 16mb pages\n"
 			       "   (u) test non-priviledged code\n"
-			       "   (I) enable ints\n"
-			       "   (i) disable ints\n"
 			       "   (H) enable HV dec\n"
 			       "   (h) disable HV dec\n"
 			       "   (q) poweroff\n",
@@ -443,11 +511,8 @@ menu(void *fdt)
 		case 'd':
 			time_delay(secs_to_tb(5));
 			break;
-		case 'I':
-			exc_enable_ee();
-			break;
-		case 'i':
-			exc_disable_ee();
+		case 'D':
+			toggle_timer();
 			break;
 		case 'H':
 			exc_enable_hdec();
