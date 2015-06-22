@@ -86,7 +86,8 @@ exc_handler(eframe_t *frame)
 
 	if (frame->vec == EXC_HDEC) {
 		set_HDEC(DEC_DISABLE);
-		printk("hypervisor decrementer!\n");
+		printk("hypervisor decrementer, exception handler with MMU %s!\n",
+		       (frame->hsrr1 & (MSR_IR | MSR_DR)) ? "on" : "off");
 		exc_rfi(frame);
 	}
 
@@ -216,8 +217,11 @@ exc_init(void)
 	 * Non-HV exceptions are LE (don't really need this here, but
 	 * if there's MSR.HV=0 MSR.PR=1 code does an sc...). We call
 	 * unpriviledged code with MSR.HV=1 MSR.PR=1.
+	 *
+	 * We also turn on AIL, so that when MMU is on, texceptions are taken
+	 * with MMU  at EA 0xc000000000004000 instead of with MMU off at RA 0x0.
 	 */
-	set_LPCR((get_LPCR() & ~LPCR_LPES) | LPCR_ILE);
+	set_LPCR((get_LPCR() & ~LPCR_LPES) | LPCR_ILE | LPCR_AIL0 | LPCR_AIL1);
 
 	/*
 	 * Exception stack.

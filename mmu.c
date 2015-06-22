@@ -46,12 +46,49 @@ typedef uint64_t vpn_t;
 
 #define IDENTITY_VSID 0UL
 #define HV_VSID       1UL
+#define AIL_VSID      2UL
+
+
+static inline page_size_t
+ea_2_base_size(ea_t ea)
+{
+	/*
+	 * Here we calculate the base page size used to map
+	 * particular EAs. The base page size is implicit from
+	 * the SLB entry, so this code needs to be kept in sync with
+	 * slb_init.
+	 *
+	 * We need the base page size (not just the actual), because it's
+	 * the base page size that is used in finding the right PTEGs.
+	 */
+	if (ea >= AIL_ASPACE_START &&
+	    ea <= AIL_ASPACE_END) {
+		return PAGE_4K;
+	} else if (ea >= HV_ASPACE) {
+		return PAGE_16M;
+	} else {
+		return PAGE_4K;
+	}
+}
 
 
 static inline vpn_t
 ea_2_vpn(ea_t ea)
 {
 	/*
+	 * AIL space.
+	 *
+	 * ESID(c00000) => VSID(2).
+	 */
+	if (ea >= AIL_ASPACE_START &&
+	    ea <= AIL_ASPACE_END) {
+		return ((ea - AIL_ASPACE_START) >> VPN_SHIFT) |
+			(AIL_VSID << (SID_SHIFT_1T - VPN_SHIFT));
+	}
+
+	/*
+	 * HV space.
+	 *
 	 * ESID(800000) => VSID(1).
 	 */
 	if ((ea & HV_ASPACE) != 0) {
@@ -60,6 +97,8 @@ ea_2_vpn(ea_t ea)
 	}
 
 	/*
+	 * 1:1 mappings.
+	 *
 	 * ESID(000000) => VSID(0).
 	 */
 	return (ea >> VPN_SHIFT) |
@@ -144,10 +183,12 @@ slb_init(void)
 	isync();
 
 	/*
-	 * 1TB segment at EA=HV_ASPACE => VA=0. We use special
-	 * slot 0 (not invalidated with slbia).
 	 *
-	 * Also create a 1TB segment at EA=0 => VA=0.
+	 *  HV: 1TB segment ESID(800000) => VSID(1), 16M pages, slot 0.
+	 * 1-1: 1TB segment ESID(000000) => VSID(0),  4K pages, slot 1.
+	 * AIL: 1TB segment ESID(c00000) => VSID(2),  4K pages, slot 2.
+	 *
+	 * Slot 0  is special (not invalidated with slbia).
 	 */
 	esid = slb_make_esid(HV_ASPACE, 0);
 	vsid = slb_make_vsid(HV_VSID, PAGE_16M);
@@ -155,6 +196,10 @@ slb_init(void)
 		     "r"(vsid), "r"(esid) : "memory");
 	esid = slb_make_esid(0, 1);
 	vsid = slb_make_vsid(IDENTITY_VSID, PAGE_4K);
+	asm volatile("slbmte %0, %1" ::
+		     "r"(vsid), "r"(esid) : "memory");
+	esid = slb_make_esid(AIL_ASPACE_START, 2);
+	vsid = slb_make_vsid(AIL_VSID, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
 	isync();
@@ -351,12 +396,7 @@ mmu_unmap(ea_t ea,
 	length_t base_size;
 	length_t actual_size;
 
-	if (ea >= HV_ASPACE) {
-		base = PAGE_16M;
-	} else {
-		base = PAGE_4K;
-	}
-
+	base = ea_2_base_size(ea);
 	BUG_ON(base != PAGE_4K && base != PAGE_16M,
 		       "page_size_t %u not supported", base);
 	BUG_ON(actual != PAGE_4K && actual != PAGE_16M,
@@ -440,12 +480,7 @@ mmu_map(ea_t ea,
 	uint64_t vflags = PTE_V_1TB_SEG | PTE_R_M | PTE_V_VALID |
 		((actual != PAGE_4K) ? PTE_V_LARGE : 0);
 
-	if (ea >= HV_ASPACE) {
-		base = PAGE_16M;
-	} else {
-		base = PAGE_4K;
-	}
-
+	base = ea_2_base_size(ea);
 	BUG_ON(base != PAGE_4K && base != PAGE_16M,
 		       "page_size_t %u not supported", base);
 	BUG_ON(actual != PAGE_4K && actual != PAGE_16M,
@@ -597,24 +632,28 @@ mmu_init(length_t ram_size)
 	 *
 	 * Loaded at 0x00000000200XXXXX.
 	 * We run at 0x80000000200XXXXX.
-	 */
-	/*
-	 * Use on-demand mapping, which works since
-	 * our ISI/DSI handlers run with MMU off today.
 	 *
-	 * Will need these mappings made right here and now
-	 * as soon as I support AIL (exceptions with MMU on).
+	 * real-mode vectors at RA 0x0.
+	 * MMU-mode vectors at EA 0xc000000000004000.
+	 *
+	 * Need these mappings in order to successfully
+	 * take exceptions with MMU on (i.e. with AIL).
 	 */
-	/* mmu_map_range((ea_t) htab, */
-	/* 	      ((ea_t) htab) + htab_size, */
-	/* 	      htab_ra, */
-	/* 	      PP_RWXX, */
-	/* 	      PAGE_4K); */
-	/* mmu_map_range((ea_t) &_start, */
-	/* 	      (ea_t) &_end, */
-	/* 	      ptr_2_ra(&_start), */
-	/* 	      PP_RWXX, */
-	/* 	      PAGE_4K); */
+	mmu_map_range(((ea_t) htab) & PAGE_MASK_16M,
+		      ((ea_t) htab) + htab_size,
+		      htab_ra & PAGE_MASK_16M,
+		      PP_RWXX,
+		      PAGE_16M);
+	mmu_map_range(((ea_t) &_start) & PAGE_MASK_16M,
+		      (ea_t) &_end,
+		      ptr_2_ra(&_start) & PAGE_MASK_16M,
+		      PP_RWXX,
+		      PAGE_16M);
+	mmu_map_range(AIL_VECTORS,
+		      AIL_ASPACE_END,
+		      0,
+		      PP_RWXX,
+		      PAGE_4K);
 }
 
 

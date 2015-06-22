@@ -194,6 +194,16 @@
 #define HV_ASPACE           0x8000000000000000UL
 
 /*
+ * Alternative interrupt vector space, reserve 1M, which
+ * is more than we'll ever need.
+ *
+ * Actual vectors starts at offset 0x4000.
+ */
+#define AIL_ASPACE_START    0xc000000000000000UL
+#define AIL_VECTORS         0xc000000000004000UL
+#define AIL_ASPACE_END      0xc000000000100000UL
+
+/*
  * GNU tools somehow don't know about the 2-register tlbie.
  *
  * This is awful.
