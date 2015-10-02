@@ -358,6 +358,8 @@ test_mmu_16mb(void)
 	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
 		if (ea2[i] != (uint64_t) &p1[i]) {
 			good = FALSE;
+			printk("error at 0x%x: expected 0x%x got 0x%x\n",
+			       &ea2[i], (uint64_t) &p1[i], ea2[i]);
 			break;
 		}
 	}
@@ -461,6 +463,9 @@ menu(void *fdt)
 	do {
 		if (c != NO_CHAR) {
 			printk("Choices: (MMU = %s):\n"
+#ifndef CONFIG_NOSIM
+			       "   (q) poweroff\n"
+#endif
 			       "   (d) 5s delay\n"
 			       "   (D) toggle 5s timer\n"
 			       "   (e) test exception\n"
@@ -472,13 +477,16 @@ menu(void *fdt)
 			       "   (T) test MMU 16mb pages\n"
 			       "   (u) test non-priviledged code\n"
 			       "   (H) enable HV dec\n"
-			       "   (h) disable HV dec\n"
-			       "   (q) poweroff\n",
+			       "   (h) disable HV dec\n",
 			       mmu_enabled() ? "enabled" : "disabled");
 		}
 
 		c = getchar();
 		switch (c) {
+#ifndef CONFIG_NOSIM
+		case 'q':
+			return;
+#endif
 		case 'M':
 			mmu_enable();
 			break;
@@ -497,8 +505,6 @@ menu(void *fdt)
 		case 'f':
 			dump_nodes(fdt);
 			break;
-		case 'q':
-			return;
 		case 'e':
 			printk("Testing exception handling...\n");
 			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed,
@@ -515,6 +521,7 @@ menu(void *fdt)
 			toggle_timer();
 			break;
 		case 'H':
+			set_HDEC(DEC_DISABLE);
 			exc_enable_hdec();
 			break;
 		case 'h':

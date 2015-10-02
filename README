@@ -42,25 +42,34 @@ What you get:
   vector location (AIL) 0xc000000000004000.
 - Running unpriviledged code.
 
-Hopefully the code is clear enough and not too messy. I'm not trying hard
-enough ;-(. I think the only code that has had any thought put into it
-is the exception vectors, and other places look especially crappy because
-I wanted to avoid writing an actual kernel.
+Hopefully the code is clear enough and not too messy. I'm not
+trying hard enough ;-(. I think the only code that has had any
+thought put into it is the exception vectors, and other places
+look especially crappy because I wanted to avoid writing an
+actual kernel.
 
 Building
 ========
 
-You will need a LE 64-bit toolchain to build (i.e. powerpc64le-linux-gnu-gcc).
-For building skiboot (for testing) you will also need the BE 64-bit
-toolchain (i.e. powerpc64-linux-gnu-gcc).
+You will need a LE 64-bit toolchain to build (i.e. ppc64le-linux).
+A good source of toolchains is kernel.org. For building skiboot
+(for testing) you will also need the BE 64-bit toolchain
+(i.e. powerpc64-linux).
 
 Skiboot is pulled-in as a submodule. 
 
-You will need the POWER8 Functional Simulator set up. Good directions: https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/
+You will need the POWER8 Functional Simulator set up or Benjamin
+Herrenschmidt's PowerNV QEMU tree.
+
+Good directions for POWER8 Functional Simulator:
+https://www.flamingspork.com/blog/2014/12/03/running-skiboot-opal-on-the-power8-simulator/
+
+Good directions for QEMU/PowerNV:
+https://www.flamingspork.com/blog/2015/08/28/running-opal-in-qemu-the-powernv-platform/
 
 $ make
 
-In the unlikely event you're trying this on real hardware.
+For QEMU or real hardware:
 
 $ make CONFIG_NOSIM=1
 
@@ -100,6 +109,7 @@ You're looking for output like -
 
 21151537: (21141251): Pick your poison:
 21163581: (21153295): Choices: (MMU = disabled):
+21178712: (21338426):    (q) poweroff
 21180946: (21170660):    (d) 5s delay
 21191199: (21180913):    (D) toggle 5s timer
 21205925: (21195639):    (e) test exception
@@ -112,7 +122,6 @@ You're looking for output like -
 21300061: (21289775):    (u) test non-priviledged code
 21321177: (21310891):    (H) enable HV dec
 21334625: (21324339):    (h) disable HV dec
-21348712: (21338426):    (q) poweroff
 
 You can interact with this:
 ---------------------------
@@ -168,6 +177,9 @@ Q: Something doesn't work on real hardware!
 A: Please file an issue and let me know! Daniel Axtens identified a number
    of issues which I believe to have resolved, but I only get to play in
    a simulator.
+
+Q: Something doesn't work on QEMU!
+A: 16MB (MPSS) pages don't seem to work as of 01-Oct-2015.
 
 TODO
 ====

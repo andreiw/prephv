@@ -11,7 +11,7 @@ else
 OBJ += mambo.o
 endif
 
-CROSS ?= powerpc64le-linux-gnu
+CROSS ?= ppc64le-linux
 CC = $(CROSS)-gcc
 
 ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 \
