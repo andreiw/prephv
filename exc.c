@@ -113,9 +113,17 @@ exc_handler(eframe_t *frame)
 		} else if (frame->r3 == 0x1337) {
 			printk("returning to kernel code\n");
 			exc_rfi(&ret_from_us);
+		} else if (frame->r3 == 0xfeed) {
+			frame->r3 = frame->r3 << 16 |
+				frame->r4;
+		} else if (frame->r3 == 0x1111) {
+			printk("%c", (char) frame->r4);
+		} else if (frame->r3 == 0x1112) {
+			printk("0x%x\n",frame->r4);
+		} else {
+			printk("unknown sc 0x%x\n",
+			       frame->r3);
 		}
-
-		frame->r3 = frame->r3 << 16 | frame->r4;
 		exc_rfi(frame);
 	}
 

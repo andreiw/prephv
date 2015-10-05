@@ -41,7 +41,6 @@
 kpcr_t kpcr;
 static time_req_t opal_timer;
 
-
 static void
 dump_props(void *fdt, int node, int depth)
 {
@@ -95,6 +94,8 @@ dump_props(void *fdt, int node, int depth)
 				   !strcmp(n, "d-cache-line-size") ||
 				   !strcmp(n, "d-cache-block-size") ||
 				   !strcmp(n, "linux,phandle") ||
+				   !strcmp(n, "linux,initrd-start") ||
+				   !strcmp(n, "linux,initrd-end") ||
 				   !strcmp(n, "phandle")) {
 				printk("%s: 0x%x\n", n,
 				       be32_to_cpu(*(uint32_t *) prop->data));
@@ -451,6 +452,84 @@ toggle_timer(void)
 	on ^= TRUE;
 }
 
+
+static void
+run_initrd(void *fdt)
+{
+	int node;
+	ra_t initrd_start;
+	ra_t initrd_end;
+	const uint32_t *be32_data;
+	void (*run)(ra_t, ra_t);
+	ra_t ra;
+
+	node = fdt_path_offset(fdt, "/chosen");
+	if (node < 0) {
+		printk("/chosen not found?\n");
+		return;
+	}
+
+	be32_data = fdt_getprop(fdt, node,
+				"linux,initrd-start",
+				NULL);
+	if (be32_data != NULL) {
+		initrd_start = be32_to_cpu(*be32_data);
+	}
+
+	be32_data = fdt_getprop(fdt, node,
+				"linux,initrd-end",
+				NULL);
+	if (be32_data != NULL) {
+		initrd_end = be32_to_cpu(*be32_data);
+	}
+
+	printk("initrd is 0x%x-0x%x\n",
+	       initrd_start,
+	       initrd_end);
+	if ((initrd_end - initrd_start) == 0) {
+		printk("nothing to do, empty initrd\n");
+		return;
+	}
+
+	ra = *(ra_t *) ra_2_ptr(initrd_start);
+	if (ra >= initrd_start &&
+	    ra < initrd_end) {
+		/*
+		 * Could be a pointer to code (ABIv2)
+		 * or to a function descriptor (ABIv1)
+		 */
+		ra = *(ra_t *) ra_2_ptr(ra);
+		if (ra >= initrd_start &&
+		    ra < initrd_end) {
+			/*
+			 * ABIv1 function descriptor.
+			 */
+			printk("ABIv1\n");
+			run = (void *) ra;
+		} else {
+			/*
+			 * ABIv2.
+			 */
+			printk("ABIv2\n");
+			run = (void *) * (ra_t *)
+				ra_2_ptr(initrd_start);
+		}
+	} else {
+		/*
+		 * Straight code?
+		 */
+		printk("looks like straight binary\n");
+		run = (void *) initrd_start;
+	}
+
+	printk("calling 0x%x\n", run);
+	exc_disable_ee();
+	mmu_disable();
+	run(ptr_2_ra(fdt), kpcr_get()->opal_base);
+	printk("returned?\n");
+}
+
+
 static void
 menu(void *fdt)
 {
@@ -477,7 +556,8 @@ menu(void *fdt)
 			       "   (T) test MMU 16mb pages\n"
 			       "   (u) test non-priviledged code\n"
 			       "   (H) enable HV dec\n"
-			       "   (h) disable HV dec\n",
+			       "   (h) disable HV dec\n"
+			       "   (I) run initrd\n",
 			       mmu_enabled() ? "enabled" : "disabled");
 		}
 
@@ -527,10 +607,12 @@ menu(void *fdt)
 		case 'h':
 			exc_disable_hdec();
 			break;
+		case 'I':
+			run_initrd(fdt);
+			break;
 		}
 	} while(1);
 }
-
 
 void
 c_main(ra_t fdt_ra)

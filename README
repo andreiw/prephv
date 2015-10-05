@@ -122,9 +122,12 @@ You're looking for output like -
 21300061: (21289775):    (u) test non-priviledged code
 21321177: (21310891):    (H) enable HV dec
 21334625: (21324339):    (h) disable HV dec
+21338435: (21324339):    (I) run initrd
+
 
 You can interact with this:
 ---------------------------
+(q) will shut down the sim using the attn instruction.
 (d) poll the timebase registers until 5s of real time pass.
 (D) toggles a periodic timer callback every 5s.
 (e) tests triggering a system call with parameter 0xfeed. The system
@@ -152,7 +155,9 @@ You can interact with this:
     exceptions.
 (h) disable HV decrementer. You will no longer see any HV decrementer
     exceptions.
-(q) will shut down the sim using the attn instruction.
+(I) execute LE binary (not ELF) code stored in initrd. The first uint64_t
+    may either be code itself, a pointer to code or a pointer to a
+    ABIv2 function descriptor.
 
 You should be able to run ppc64le_hello on a real Power8 machine via skiboot,
 but you will need to build with CONFIG_NOSIM=1. It has been successfully done
