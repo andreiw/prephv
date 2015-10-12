@@ -25,12 +25,21 @@
 #include <types.h>
 #include <opal.h>
 
+static void
+_putchar(char c)
+{
+	uint64_t len = cpu_to_be64(1);
+	opal_write(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(&c));
+}
+
 
 static void
 putchar(char c)
 {
-	uint64_t len = cpu_to_be64(1);
-	opal_write(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(&c));
+	_putchar(c);
+	if (c == '\n') {
+		_putchar('\r');
+	}
 }
 
 
@@ -64,9 +73,6 @@ printks(char *s)
 	}
 
 	while ((c = *s++) != '\0') {
-		if (c == '\n') {
-			putchar('\r');
-		}
 		putchar(c);
 	}
 }
