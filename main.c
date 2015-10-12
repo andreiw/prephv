@@ -460,7 +460,7 @@ run_initrd(void *fdt)
 	ra_t initrd_start;
 	ra_t initrd_end;
 	const uint32_t *be32_data;
-	void (*run)(ra_t, ra_t);
+	void (*run)(ra_t, ra_t, ra_t);
 	ra_t ra;
 
 	node = fdt_path_offset(fdt, "/chosen");
@@ -525,7 +525,7 @@ run_initrd(void *fdt)
 	printk("calling 0x%x\n", run);
 	exc_disable_ee();
 	mmu_disable();
-	run(ptr_2_ra(fdt), kpcr_get()->opal_base);
+	run(ptr_2_ra(fdt), kpcr_get()->opal_base, kpcr_get()->opal_entry);
 	printk("returned?\n");
 }
 
