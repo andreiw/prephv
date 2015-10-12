@@ -81,6 +81,10 @@ $ make test
 This will run the simulator and pop-up an xterm for OPAL console 0. If you
 don't like xterm, feel free to change it in ppc64le_hello.tcl.
 
+For QEMU/PowerNV, something like following should do. Remember that skiboot.lid must be in $(CWD).
+
+$  cd skiboot; ~/src/qemu/ppc64-softmmu/qemu-system-ppc64 -m 4G -M powernv -kernel ../ppc64le_hello
+
 You're looking for output like -
 ...
 20295980: (20295980): [20289411000,5] INIT: Starting kernel at 0x20010000, fdt at 0x303039f0 (size 0x13b4)
