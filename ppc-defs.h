@@ -129,15 +129,26 @@
 #define SRR1_ISI_NOT_MAPPED_LG (63 -33)
 #define SRR1_ISI_NOT_MAPPED    __MASK(SRR1_ISI_NOT_MAPPED_LG)
 
-#define LPCR_ILE_LG     (63 - 38)             /* Interrupt Little Endian */
+#define LPCR_VPMD_LG    (63 - 0)               /* VPM with translation disabled */
+#define LPCR_VPMD       __MASK(LPCR_VPMD_LG)
+#define LPCR_VPME_LG    (63 - 1)               /* VPM with translation enabled */
+#define LPCR_VPME       __MASK(LPCR_VPME_LG)
+#define LPCR_VRMSLP0_LG (63 - 12)              /* VRMA segment LP1 */
+#define LPCR_VRMSLP0    __MASK(LPCR_VRMSLP0_LG)
+#define LPCR_VRMSLP1_LG (63 - 13)              /* VRMA segment LP0 */
+#define LPCR_VRMSLP1    __MASK(LPCR_VRMSLP1_LG)
+#define LPCR_VRMSL_LG   (63 - 16)              /* VRMA segment L */
+#define LPCR_VRMSL      __MASK(LPCR_VRMSL_LG)
+
+#define LPCR_ILE_LG     (63 - 38)              /* Interrupt Little Endian */
 #define LPCR_ILE        __MASK(LPCR_ILE_LG)
-#define LPCR_AIL1_LG    (63 - 39)             /* Alternate Interrupt Location 1 */
+#define LPCR_AIL1_LG    (63 - 39)              /* Alternate Interrupt Location 1 */
 #define LPCR_AIL1        __MASK(LPCR_AIL1_LG)
-#define LPCR_AIL0_LG    (63 - 40)             /* Alternate Interrupt Location 0 */
+#define LPCR_AIL0_LG    (63 - 40)              /* Alternate Interrupt Location 0 */
 #define LPCR_AIL0       __MASK(LPCR_AIL0_LG)
-#define LPCR_LPES_LG    (63 - 60)             /* Logical Part. Env. Selector */
+#define LPCR_LPES_LG    (63 - 60)              /* Logical Part. Env. Selector */
 #define LPCR_LPES       __MASK(LPCR_LPES_LG)
-#define LPCR_HDICE_LG   (63 - 63)             /* Hypervisor Decrementer Enable */
+#define LPCR_HDICE_LG   (63 - 63)              /* Hypervisor Decrementer Enable */
 #define LPCR_HDICE      __MASK(LPCR_HDICE_LG)
 
 /*
@@ -247,6 +258,10 @@
 #define SLB_VSID_LP_SHIFT       (63-58)
 #define SLB_VSID_LP_16M         0
 #define SLB_VSID_LP_4K          0
+
+/* Bits in the VRMASD word. */
+#define VRMASD_L                (1UL << (16-12))
+#define VRMASD_LP_SHIFT         (16-16)
 
 /*
  * HTAB support.

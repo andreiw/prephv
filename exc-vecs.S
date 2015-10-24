@@ -102,7 +102,7 @@ exc_cont:
 	 * exception, continue saving to top of the
 	 * unrecoverable stack r1. Otherwise, use
 	 * interrupted r1 stack unless we're coming
-	 * from unpriviledged mode. If we switch
+	 * from unpriviledged mode OR non-HV. If we switch
 	 * away from unrecoverable stack, we need to
 	 * copy stashed vec, r0, r2, hsrr0
 	 * and hsrr1 values to it.
@@ -118,6 +118,15 @@ exc_cont:
 	 */
 	andi.	r2, r0, MSR_PR
 	bne-	exc_with_kern_sp
+	/*
+	 * If MSR_HV is not set, we also want to switch
+	 * to kern_sp.
+	 */
+	mr r2, r0
+	srdi r2, r2, MSR_HV_LG
+	andi. r2, r2, 1
+	beq-	exc_with_kern_sp
+
 	/*
 	 * From kernel mode, continue using whatever
 	 * stack we had before the exception, paying

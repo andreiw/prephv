@@ -69,5 +69,7 @@ void mmu_disable(void);
 bool_t mmu_enabled(void);
 void mmu_map(ea_t ea, ra_t ra, prot_t pp, page_size_t actual);
 void mmu_unmap(ea_t ea, page_size_t actual);
+void mmu_map_vrma(ra_t ra_start, ra_t ra_end);
+void mmu_unmap_vrma(ra_t ra_start, ra_t ra_end);
 
 #endif /* MMU_H */

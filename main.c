@@ -244,8 +244,53 @@ test_syscall(uint64_t param1, uint64_t param2)
 {
 	register uint64_t r3 __asm__ ("r3") = param1;
 	register uint64_t r4 __asm__ ("r4") = param2;
-	asm volatile("sc" : "=r" (r3) : "r" (r3), "r" (r4));
+	asm volatile("sc 1" : "=r" (r3) : "r" (r3), "r" (r4));
 	return r3;
+}
+
+
+static void
+test_hv(void)
+{
+	static void *upage = NULL;
+	eframe_t uframe;
+
+	if (upage == NULL) {
+		upage = mem_alloc(PAGE_SIZE, PAGE_SIZE);
+	}
+
+	/*
+	 * Grab a page and map it as "virtual real mode" page 0 in our VM.
+	 */
+	mmu_map_vrma(ptr_2_ra(upage), ptr_2_ra(upage) + PAGE_SIZE);
+	memcpy(upage, (void *) test_syscall, (uint64_t) &test_hv -
+	       (uint64_t) &test_syscall);
+	lwsync();
+	flush_cache((vaddr_t) upage, PAGE_SIZE);
+
+	/*
+	 * VM supervisor is at EA 0 and does test_syscall(0x1337, 0),
+	 * which simply returns to HV supervisor state.
+	 */
+	uframe.r1 = 0 + PAGE_SIZE - STACKFRAMESIZE;
+	uframe.r3 = 0x1337;
+	uframe.r4 = 0;
+	uframe.hsrr0 = 0;
+	/* No interrupts, no MMU. */
+	uframe.hsrr1 = (mfmsr() & ~(MSR_HV | MSR_IR | MSR_DR | MSR_EE));
+
+	/*
+	 * Force switch into our "VM". The exception handler stashes
+	 * the kernel state behind in a global (sigh), which is magically
+	 * restored on a test_syscall(0x1337, 0). The things we do
+	 * to avoid writing an actual scheduler.
+	 */
+	test_syscall(0x7e57, (uint64_t) &uframe);
+
+	/*
+	 * We return here. Unmap VM "real mode" memory.
+	 */
+	mmu_unmap_vrma(ptr_2_ra(upage), ptr_2_ra(upage) + PAGE_SIZE);
 }
 
 
@@ -275,7 +320,7 @@ test_u(void)
 	 * code to run and the stack.
 	 */
 	mmu_map(ea, ptr_2_ra(upage), PP_RWRW, PAGE_4K);
-	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_u -
+	memcpy((void *) ea, (void *) test_syscall, (uint64_t) &test_hv -
 	       (uint64_t) &test_syscall);
 	lwsync();
 	flush_cache(ea, PAGE_SIZE);
@@ -555,6 +600,7 @@ menu(void *fdt)
 			       "   (t) test MMU\n"
 			       "   (T) test MMU 16mb pages\n"
 			       "   (u) test non-priviledged code\n"
+			       "   (U) test VM real-mode code\n"
 			       "   (H) enable HV dec\n"
 			       "   (h) disable HV dec\n"
 			       "   (I) run initrd\n",
@@ -581,6 +627,9 @@ menu(void *fdt)
 			break;
 		case 'u':
 			test_u();
+			break;
+		case 'U':
+			test_hv();
 			break;
 		case 'f':
 			dump_nodes(fdt);

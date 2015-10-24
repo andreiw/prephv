@@ -96,6 +96,8 @@ exc_handler(eframe_t *frame)
 			printk("Triggering nested exception crash\n");
 			asm volatile("sc");
 		} else if (frame->r3 == 0x7e57) {
+			eframe_t *ret_frame = (eframe_t *) frame->r4;
+			uint64_t hsrr1_mask = ret_frame->hsrr1 & (MSR_HV | MSR_PR);
 			/*
 			 * A scheduler switching to an unpriviledged
 			 * context needs to update the SP pointer used
@@ -108,10 +110,20 @@ exc_handler(eframe_t *frame)
 			 */
 			kpcr_get()->kern_sp = frame->r1 - ABI_STACK_PROTECTED_ZONE;
 			ret_from_us = *frame;
-			printk("returning to user code\n");
+
+			printk("returning to ");
+			if (hsrr1_mask == (MSR_HV | MSR_PR)) {
+				printk("HV user code\n");
+			} else if (hsrr1_mask == MSR_HV) {
+				printk("HV priviledged code\n");
+			} else if (hsrr1_mask == MSR_PR) {
+				printk("VM user code\n");
+			} else if (hsrr1_mask == 0) {
+				printk("VM priviledged code\n");
+			}
 			exc_rfi((eframe_t *) frame->r4);
 		} else if (frame->r3 == 0x1337) {
-			printk("returning to kernel code\n");
+			printk("returning back\n");
 			exc_rfi(&ret_from_us);
 		} else if (frame->r3 == 0xfeed) {
 			frame->r3 = frame->r3 << 16 |

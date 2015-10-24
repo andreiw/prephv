@@ -41,6 +41,7 @@ What you get:
 - Taking exception vectors with MMU on at the alternate
   vector location (AIL) 0xc000000000004000.
 - Running unpriviledged code.
+- Running VM supervisor real mode code with VRMA
 
 Hopefully the code is clear enough and not too messy. I'm not
 trying hard enough ;-(. I think the only code that has had any
@@ -124,6 +125,7 @@ You're looking for output like -
 21272526: (21262240):    (t) test MMU
 21282779: (21272493):    (T) test MMU 16mb pages
 21300061: (21289775):    (u) test non-priviledged code
+21300061: (21299783):    (U) test VM real-mode code
 21321177: (21310891):    (H) enable HV dec
 21334625: (21324339):    (h) disable HV dec
 21338435: (21324339):    (I) run initrd
@@ -155,6 +157,8 @@ You can interact with this:
     support so the hand-off between code is messy. We enter user code via
     syscall, saving off the exception frame for a subsequent return from user
     code, again via syscall.
+(U) similar to (u), but shows running code in non-HV supervisor mode in
+    real mode, by using the VRMA/VPM features of HV mode.
 (H) enables HV decrementer. You will start seeing hypervisor decrementer
     exceptions.
 (h) disable HV decrementer. You will no longer see any HV decrementer
