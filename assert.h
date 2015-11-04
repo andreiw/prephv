@@ -21,14 +21,13 @@
 #ifndef ASSERT_H
 #define ASSERT_H
 
-#include <console.h>
+#include <log.h>
 #include <ppc.h>
 
 #define BUG_ON(x, fmt, ...) do {                        \
 		if ((x)) {				\
 			mtmsrd(0, 1);			\
-			printk("BUG (%s): " fmt "\n", S(x), ## __VA_ARGS__); \
-			while(1);			\
+			FATAL("BUG (%s): " fmt "\n", SIFY(x), ## __VA_ARGS__); \
 		}					\
 	} while(0);
 

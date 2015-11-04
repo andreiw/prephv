@@ -22,7 +22,7 @@
 #include <time.h>
 #include <opal.h>
 #include <list.h>
-#include <console.h>
+#include <log.h>
 #include <exc.h>
 
 /*
@@ -106,7 +106,7 @@ time_handle(void)
 	}
 
 	/*
-	 * printk("%u timers fired, next wakeup 0x%x\n", handled, dec);
+	 * LOG("%u timers fired, next wakeup 0x%x", handled, dec);
 	 */
 	set_DEC(dec);
 }
@@ -168,16 +168,16 @@ void
 time_delay(uint64_t delay)
 {
 	uint64_t now = mftb();
-	printk("Delaying for %u.%us\n",
+	LOG("Delaying for %u.%us",
 	       delay / kpcr_get()->tb_freq,
 	       delay % kpcr_get()->tb_freq);
 	while ((mftb() - now) < delay) {
 		cpu_relax();
-		printk("Now = %u.%u s\n",
+		LOG("Now = %u.%u s",
 		       (mftb() - now) / kpcr_get()->tb_freq,
 		       (mftb() - now) % kpcr_get()->tb_freq);
 	}
-	printk("Done!\n");
+	LOG("Done!");
 }
 
 

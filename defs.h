@@ -37,11 +37,27 @@
 
 #define NULL ((void *) 0)
 #define BITS_PER_LONG 64
-#define ALIGN_UP(addr, align) (((addr) + (align) - 1) & (~((align) - 1)))
-#define PALIGN_UP(p, align) ((typeof(p))(((uintptr_t)(p) + (align) - 1) & (~((align) - 1))))
-#define ALIGN(addr, align) (((addr) - 1) & (~((align) - 1)))
-#define S(...) _S(__VA_ARGS__)
-#define _S(...) #__VA_ARGS__
+#define ALIGN_UP_MASK(x, mask) (((x) + (mask)) & ~(mask))
+#define ALIGN_MASK(x, mask)    ((x) & ~(mask))
+#define ALIGN(x, a)            ALIGN_MASK(x, (typeof(x))(a) - 1)
+#define IS_ALIGNED(x, a)       (((x) & ((typeof(x))(a) - 1)) == 0)
+#define ALIGN_UP(x, a)         (IS_ALIGNED(x, a) ? (x) : ALIGN_UP_MASK(x, (typeof(x))(a) - 1))
+
+#define PALIGN(p, align)       ((typeof(p)) ALIGN((uintptr_t)(p),       \
+                                                  (uintptr_t) (align))
+#define PALIGN_UP(p, align)    ((typeof(p)) ALIGN_UP((uintptr_t)(p),    \
+                                                     (uintptr_t)(align)))
+#define SIFY(...) _SIFY(__VA_ARGS__)
+#define _SIFY(...) #__VA_ARGS__
+
+/* Mask off and return a bit slice. */
+#define MASK_OFF(value, larger, smaller) (((value) >> (smaller)) & ((1UL << ((larger) + 1UL - (smaller))) - 1UL))
+
+/* Form a bit slice. */
+#define MASK_IN(value, larger, smaller) (((value) & ((1UL << ((larger) + 1UL - (smaller))) - 1UL)) << (smaller))
+
+#define __FORCE_64(x) x ## UL
+#define ARRAY_LEN(x) (sizeof((x)) / sizeof((x)[0]))
 
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
@@ -50,6 +66,7 @@
 #define offsetof(TYPE, MEMBER) ((length_t) &((TYPE *)0)->MEMBER)
 
 #define MB(x) (1UL * x * 1024 * 1024)
+#define GB(x) (1UL * x * 1024 * 1024 * 1024)
 #define TB(x) (1UL * x * 1024 * 1024 * 1024 * 1024)
 
 #define __packed                __attribute__((packed))
@@ -63,6 +80,16 @@
 #define __nomcount              __attribute__((no_instrument_function))
 #define __alwaysinline          __attribute__((always_inline))
 
+#define likely(x)     (__builtin_constant_p(x) ? !!(x) : __builtin_expect(!!(x), 1))
+#define unlikely(x)   (__builtin_constant_p(x) ? !!(x) : __builtin_expect(!!(x), 0))
+
+#define do_div(n,base) ({\
+  uint32_t __base = (base);\
+  uint32_t __rem;\
+  __rem = ((uint64_t)(n)) % __base;\
+  (n) = ((uint64_t)(n)) / __base;\
+  __rem;\
+    })
 
 /*
  * Return the zero-based bit position (LE, not IBM bit numbering) of

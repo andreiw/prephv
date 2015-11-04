@@ -34,6 +34,7 @@
 #include <time.h>
 #include <mmu.h>
 #include <mem.h>
+#include <log.h>
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -45,7 +46,6 @@ static void
 dump_props(void *fdt, int node, int depth)
 {
 	const char *n;
-	int i;
 	uint32_t tag;
 	int nextoffset;
 	const struct fdt_property *prop;
@@ -65,12 +65,8 @@ dump_props(void *fdt, int node, int depth)
 			prop = _fdt_offset_ptr(fdt, offset);
 			n = fdt_string(fdt, fdt32_to_cpu(prop->nameoff));
 
-			for  (i = 0; i < depth; i++) {
-				printk(" ");
-			}
-
 			if (fdt32_to_cpu(prop->len) == 0) {
-				printk("%s: TRUE\n", n);
+				LOG("%.*c%s: true", depth, ' ', n);
 			} else if (!strcmp(n, "compatible") ||
 				   !strcmp(n, "bootargs") ||
 				   !strcmp(n, "linux,stdout-path") ||
@@ -78,7 +74,7 @@ dump_props(void *fdt, int node, int depth)
 				   !strcmp(n, "model") ||
 				   !strcmp(n, "device_type")
 				) {
-				printk("%s: %s\n", n, prop->data);
+				LOG("%.*c%s: %s", depth, ' ', n, prop->data);
 			} else if (!strcmp(n, "#address-cells") ||
 				   !strcmp(n, "#size-cells") ||
 				   !strcmp(n, "#bytes") ||
@@ -97,10 +93,10 @@ dump_props(void *fdt, int node, int depth)
 				   !strcmp(n, "linux,initrd-start") ||
 				   !strcmp(n, "linux,initrd-end") ||
 				   !strcmp(n, "phandle")) {
-				printk("%s: 0x%x\n", n,
+				LOG("%.*c%s: 0x%x", depth, ' ', n,
 				       be32_to_cpu(*(uint32_t *) prop->data));
 			} else {
-				printk("%s: 0x%x@0x%x\n", n,
+				LOG("%.*c%s: 0x%x@0x%x", depth, ' ', n,
 				       fdt32_to_cpu(prop->len),
 				       prop->data);
 			}
@@ -117,7 +113,7 @@ opal_timer_cb(time_req_t *t) {
 
 	/* Recurring timer. */
 	t->when = ms_to_tb((uint64_t) t->ctx) + mftb();
-	return TRUE;
+	return true;
 }
 
 
@@ -132,7 +128,7 @@ cpu_init(void *fdt)
 
 	node = fdt_node_offset_by_dtype(fdt, -1, "cpu");
 	if (node < 0) {
-		printk("CPU0 not found?\n");
+		LOG("CPU0 not found?");
 		return;
 	}
 
@@ -140,20 +136,20 @@ cpu_init(void *fdt)
 	if (be32_data != NULL) {
 		slb_size = be32_to_cpu(*be32_data);
 	} else {
-		printk("Assuming default SLB size\n");
+		LOG("Assuming default SLB size");
 		slb_size = 32;
 	}
-	printk("SLB size = 0x%x\n", slb_size);
+	LOG("SLB size = 0x%x", slb_size);
 	kpcr_get()->slb_size = slb_size;
 
 	be32_data = fdt_getprop(fdt, node, "timebase-frequency", NULL);
 	if (be32_data != NULL) {
 		tb_freq = be32_to_cpu(*be32_data);
 	} else {
-		printk("Assuming default TB frequency\n");
+		LOG("Assuming default TB frequency");
 		tb_freq = 512000000;
 	}
-	printk("TB freq = %u\n", tb_freq);
+	LOG("TB freq = %u", tb_freq);
 	kpcr_get()->tb_freq = tb_freq;
 
 	/*
@@ -169,7 +165,7 @@ cpu_init(void *fdt)
 	}
 
 	exc_init();
-	mmu_init((ea_t) &_end - (ea_t) &_start);
+	mmu_init(4UL * 1024 * 1024 * 1024);
 	time_init();
 
 	if (opal_ms != 0) {
@@ -186,10 +182,23 @@ cpu_init(void *fdt)
 	 * Enable interrupts.
 	 */
 	exc_enable_ee();
+	LOG("we are alive!");
+
+	LOG("We're alive!");
+	WARN("We're alive!");
+	ERROR("We're alive!");
+
+	{
+		void dump_nodes(void *fdt);
+		dump_nodes(fdt);
+	}
+
+	FATAL("We're alive!");
+	while(1);
 }
 
 
-static void
+ void
 dump_nodes(void *fdt)
 {
 	int i;
@@ -199,12 +208,12 @@ dump_nodes(void *fdt)
 	const char *n;
 
 	if (fdt_check_header(fdt) != 0) {
-		printk("Bad FDT\n");
+		LOG("Bad FDT");
 		return;
 	}
 
 	numrsv = fdt_num_mem_rsv(fdt);
-	printk("FDT version: %d\n", fdt_version(fdt));
+	LOG("FDT version: %d", fdt_version(fdt));
 
 	for (i = 0; i < numrsv; i++) {
 		ra_t addr;
@@ -213,7 +222,7 @@ dump_nodes(void *fdt)
 			break;
 		}
 
-		printk("/memreserve/ 0x%x 0x%x;\n",
+		LOG("/memreserve/ 0x%x 0x%x;",
 		       addr, size);
 	}
 
@@ -221,12 +230,8 @@ dump_nodes(void *fdt)
 	depth = 0;
 	do {
 		n = fdt_get_name(fdt, offset, NULL);
-		for  (i = 0; i < depth * 4; i++) {
-			printk(" ");
-		}
-
 		if (n != NULL) {
-			printk("<%s>\n", n);
+			LOG("%.*c<%s>", depth * 4, ' ', n);
 		}
 
 		dump_props(fdt, offset, depth * 4 + 2);
@@ -391,39 +396,39 @@ test_mmu_16mb(void)
 	 * where the base page size = 16M, because we need to do more
 	 * oh so glacially slow PTE updates.
 	 */
-	printk("mapping two EAs to same RA - on a sim this will take a while...\n");
+	LOG("mapping two EAs to same RA - on a sim this will take a while...");
 	mmu_map((ea_t) ea, ptr_2_ra(p1), PP_RWXX, PAGE_16M);
-	printk("mapped 0x%x to 0x%x as 16M\n", ea, p1);
+	LOG("mapped 0x%x to 0x%x as 16M", ea, p1);
 	mmu_map((ea_t) ea2, ptr_2_ra(p1), PP_RWXX, PAGE_16M);
-	printk("mapped 0x%x to 0x%x as 16M\n", ea2, p1);
+	LOG("mapped 0x%x to 0x%x as 16M", ea2, p1);
 	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
 		ea[i] = (uint64_t) &p1[i];
 	}
-	printk("prep completed\n");
-	good = TRUE;
+	LOG("prep completed");
+	good = true;
 	for (i = 0; i < (PAGE_SIZE * 2 / sizeof(uint64_t)); i++) {
 		if (ea2[i] != (uint64_t) &p1[i]) {
-			good = FALSE;
-			printk("error at 0x%x: expected 0x%x got 0x%x\n",
+			good = false;
+			LOG("error at 0x%x: expected 0x%x got 0x%x",
 			       &ea2[i], (uint64_t) &p1[i], ea2[i]);
 			break;
 		}
 	}
-	printk("16M MPSS mappings %swork\n", !good ? "don't " : "");
+	LOG("16M MPSS mappings %swork", !good ? "don't " : "");
 	if (!good) {
 		goto out;
 	}
 
-	printk("mapping same EAs to different RAs\n");
+	LOG("mapping same EAs to different RAs");
 	mmu_unmap((ea_t) ea2, PAGE_16M);
 	mmu_map((ea_t) ea2, ptr_2_ra(p2), PP_RWXX, PAGE_16M);
-	printk("mapped %p to %p as 16M\n", ea2, p2);
+	LOG("mapped %p to %p as 16M", ea2, p2);
 	good = memcmp((void *) ea, (void *) ea2, PAGE_SIZE * 2) != 0;
-	printk("mapped %p to %p %scorrectly\n", ea2,
+	LOG("mapped %p to %p %scorrectly", ea2,
 	       p2, !good ? "in" : "");
 
 out:
-	printk("finishing up\n");
+	LOG("finishing up");
 	mmu_unmap((ea_t) ea2, PAGE_16M);
 	mmu_unmap((ea_t) ea, PAGE_16M);
 
@@ -451,14 +456,14 @@ test_mmu(void)
 	source = (void *) &_start;
 	mmu_map(ea, ptr_2_ra(source), PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, source, PAGE_SIZE);
-	printk("mapped 0x%x to 0x%x %scorrectly\n", ea,
+	LOG("mapped 0x%x to 0x%x %scorrectly", ea,
 	       ptr_2_ra(source), res ? "in" : "");
 	mmu_unmap(ea, PAGE_4K);
 
 	source = (void *) (((ea_t) &_start) + PAGE_SIZE);
 	mmu_map(ea, ptr_2_ra(source), PP_RWXX, PAGE_4K);
 	res = memcmp((void *) ea, source , PAGE_SIZE);
-	printk("mapped 0x%x to 0x%x %scorrectly\n", ea,
+	LOG("mapped 0x%x to 0x%x %scorrectly", ea,
 	       ptr_2_ra(source), res ? "in" : "");
 	mmu_unmap(ea, PAGE_4K);
 
@@ -471,11 +476,11 @@ test_mmu(void)
 static bool_t
 timer_cb(time_req_t *t)
 {
-	printk("Timer '%s' fired!\n", t->name);
+	LOG("Timer '%s' fired!", t->name);
 
 	/* This is a recurring timer. */
 	t->when = secs_to_tb((uint64_t) t->ctx) + mftb();
-	return TRUE;
+	return true;
 }
 
 
@@ -483,18 +488,18 @@ static void
 toggle_timer(void)
 {
 	static time_req_t t;
-	static bool_t on = FALSE;
+	static bool_t on = false;
 
 	if (!on) {
 		time_prep_s(5, timer_cb, "5s", (void *) 5, &t);
-		printk("Enabling timer callback\n");
+		LOG("Enabling timer callback");
 		time_enqueue(&t);
 	} else {
-		printk("Disabling timer callback\n");
+		LOG("Disabling timer callback");
 		time_dequeue(&t);
 	}
 
-	on ^= TRUE;
+	on ^= true;
 }
 
 
@@ -510,7 +515,7 @@ run_initrd(void *fdt)
 
 	node = fdt_path_offset(fdt, "/chosen");
 	if (node < 0) {
-		printk("/chosen not found?\n");
+		LOG("/chosen not found?");
 		return;
 	}
 
@@ -528,11 +533,11 @@ run_initrd(void *fdt)
 		initrd_end = be32_to_cpu(*be32_data);
 	}
 
-	printk("initrd is 0x%x-0x%x\n",
+	LOG("initrd is 0x%x-0x%x",
 	       initrd_start,
 	       initrd_end);
 	if ((initrd_end - initrd_start) == 0) {
-		printk("nothing to do, empty initrd\n");
+		LOG("nothing to do, empty initrd");
 		return;
 	}
 
@@ -549,13 +554,13 @@ run_initrd(void *fdt)
 			/*
 			 * ABIv1 function descriptor.
 			 */
-			printk("ABIv1\n");
+			LOG("ABIv1");
 			run = (void *) ra;
 		} else {
 			/*
 			 * ABIv2.
 			 */
-			printk("ABIv2\n");
+			LOG("ABIv2");
 			run = (void *) * (ra_t *)
 				ra_2_ptr(initrd_start);
 		}
@@ -563,33 +568,30 @@ run_initrd(void *fdt)
 		/*
 		 * Straight code?
 		 */
-		printk("looks like straight binary\n");
+		LOG("looks like straight binary");
 		run = (void *) initrd_start;
 	}
 
-	printk("calling 0x%x\n", run);
+	LOG("calling 0x%x", run);
 	exc_disable_ee();
 	mmu_disable();
 	run(ptr_2_ra(fdt), kpcr_get()->opal_base, kpcr_get()->opal_entry);
-	printk("returned?\n");
+	LOG("returned?");
 }
 
 
-static void
+void
 menu(void *fdt)
 {
 	int c = 0;
 
 	/* Clear any chars. */
-	while(getchar() != NO_CHAR);
+	while(con_getchar() != NO_CHAR);
 
-	printk("\nPick your poison:\n");
+	LOG("\nPick your poison:");
 	do {
 		if (c != NO_CHAR) {
-			printk("Choices: (MMU = %s):\n"
-#ifndef CONFIG_NOSIM
-			       "   (q) poweroff\n"
-#endif
+			LOG("Choices: (MMU = %s):\n"
 			       "   (d) 5s delay\n"
 			       "   (D) toggle 5s timer\n"
 			       "   (e) test exception\n"
@@ -603,16 +605,12 @@ menu(void *fdt)
 			       "   (U) test VM real-mode code\n"
 			       "   (H) enable HV dec\n"
 			       "   (h) disable HV dec\n"
-			       "   (I) run initrd\n",
+			       "   (I) run initrd",
 			       mmu_enabled() ? "enabled" : "disabled");
 		}
 
-		c = getchar();
+		c = con_getchar();
 		switch (c) {
-#ifndef CONFIG_NOSIM
-		case 'q':
-			return;
-#endif
 		case 'M':
 			mmu_enable();
 			break;
@@ -635,13 +633,13 @@ menu(void *fdt)
 			dump_nodes(fdt);
 			break;
 		case 'e':
-			printk("Testing exception handling...\n");
-			printk("sc(feed) => 0x%x\n", test_syscall(0xfeed,
+			LOG("Testing exception handling...");
+			LOG("sc(feed) => 0x%x", test_syscall(0xfeed,
 								  0xface));
 			break;
 		case 'n':
-			printk("Testing nested exception handling...\n");
-			printk("sc(dead) => 0x%x\n", test_syscall(0xdead, 0));
+			LOG("Testing nested exception handling...");
+			LOG("sc(dead) => 0x%x", test_syscall(0xdead, 0));
 			break;
 		case 'd':
 			time_delay(secs_to_tb(5));
@@ -669,12 +667,12 @@ c_main(ra_t fdt_ra)
 	void *fdt;
 	uint64_t len = cpu_to_be64(sizeof(HELLO_OPAL));
 
-#ifndef CONFIG_NOSIM
+#ifdef CONFIG_MAMBO
 	/*
 	 * Write using sim interface (simpler).
 	 */
 	mambo_write(HELLO_MAMBO, sizeof(HELLO_MAMBO));
-#endif
+#endif /* CONFIG_MAMBO */
 
 	/*
 	 * Write using firmware interface.
@@ -684,16 +682,15 @@ c_main(ra_t fdt_ra)
 	/*
 	 * Some info.
 	 */
-	printk("_start = %p\n", &_start);
-	printk("_bss   = %p\n", &_bss_start);
-	printk("_stack = %p\n", &_stack_start);
-	printk("_end   = %p\n", &_end);
-	printk("KPCR   = %p\n", kpcr_get());
-	printk("TOC    = %p\n", kpcr_get()->toc);
-	printk("OPAL   = %p\n", kpcr_get()->opal_base);
-	printk("FDT    = 0x%x\n", fdt_ra);
+	LOG("_start = %p", &_start);
+	LOG("_bss   = %p", &_bss_start);
+	LOG("_stack = %p", &_stack_start);
+	LOG("_end   = %p", &_end);
+	LOG("KPCR   = %p", kpcr_get());
+	LOG("TOC    = %p", kpcr_get()->toc);
+	LOG("OPAL   = %p", kpcr_get()->opal_base);
+	LOG("FDT    = 0x%x", fdt_ra);
 	fdt = ra_2_ptr(fdt_ra);
 
 	cpu_init(fdt);
-	menu(fdt);
 }

@@ -1,6 +1,4 @@
 /*
- * Various console-related bits.
- *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,16 +16,19 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#ifndef VSPRINTF_H
+#define VSPRINTF_H
 
 #include <stdarg.h>
+#include <assert.h>
 
-#define NO_CHAR -1
+typedef struct va_format {
+	const char *fmt;
+	va_list *va;
+} va_format_t;
 
-int con_getchar(void);
-void con_putchar(char c);
-void con_puts(char *s);
-void con_puts_len(char *s, length_t len);
+unsigned long long simple_strtoull(const char *cp, char **endp, unsigned int base);
 
-#endif /* CONSOLE_H */
+int vsnprintf(char *buf, length_t size, const char *fmt, va_list args);
+
+#endif /* VSPRINTF_H */

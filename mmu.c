@@ -24,7 +24,7 @@
 #include <types.h>
 #include <defs.h>
 #include <assert.h>
-#include <console.h>
+#include <log.h>
 #include <linkage.h>
 #include <endian.h>
 #include <string.h>
@@ -163,7 +163,7 @@ slb_dump(void)
 	uint64_t esid;
 	uint64_t vsid;
 
-	printk("SLB entries:\n");
+	LOG("SLB entries:");
 	for (entry = 0; entry < kpcr_get()->slb_size; ++entry) {
 		asm volatile("slbmfee  %0,%1" : "=r" (esid) : "r" (entry));
 		if (esid == 0) {
@@ -174,7 +174,7 @@ slb_dump(void)
 		}
 
 		asm volatile("slbmfev  %0,%1" : "=r" (vsid) : "r" (entry));
-		printk("%d: E 0x%x V 0x%x\n", entry, esid, vsid);
+		LOG("%d: E 0x%x V 0x%x", entry, esid, vsid);
 	}
 }
 
@@ -451,8 +451,8 @@ mmu_unmap_vpn(vpn_t vpn,
 		}
 
 		/*
-		 * printk("VPN 0x%x -> hash 0x%x -> pteg 0x%x "
-		 *        "(i = %u v = 0x%x r = 0x%x) = unmap\n",
+		 * LOG("VPN 0x%x -> hash 0x%x -> pteg 0x%x "
+		 *        "(i = %u v = 0x%x r = 0x%x) = unmap",
 		 *        vpn, hash, pteg, i, be64_to_cpu(pte->v),
 		 *        be64_to_cpu(pte->r));
 		 */
@@ -566,7 +566,7 @@ mmu_map_vpn(vpn_t vpn,
 		}
 
 		/*
-		 * printk("VPN 0x%x -> hash 0x%x -> pteg 0x%x (i = %u) = RA 0x%x\n",
+		 * LOG("VPN 0x%x -> hash 0x%x -> pteg 0x%x (i = %u) = RA 0x%x",
 		 *         vpn, hash, pteg, i, ra);
 		 */
 		if (i == PTES_PER_GROUP) {
@@ -696,7 +696,7 @@ mmu_init(length_t ram_size)
 	 * See 5.7.7.4 PowerISA v2.07 p904.
 	 */
 	htab = mem_alloc(htab_size, HTAB_ALIGN);
-	printk("HTAB (%u ptegs, mask 0x%x, size 0x%x) @ %p\n",
+	LOG("HTAB (%u ptegs, mask 0x%x, size 0x%x) @ %p",
 	       ptegs, htab_hash_mask, htab_size, htab);
 
 	memset(htab, 0, htab_size);
@@ -742,6 +742,9 @@ mmu_init(length_t ram_size)
 		      0,
 		      PP_RWXX,
 		      PAGE_4K);
+
+	LOG("enabling mmu");
+	mmu_enable();
 }
 
 

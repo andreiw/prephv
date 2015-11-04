@@ -222,7 +222,7 @@
 #define PPC_INST_TLBIE      0x7c000264
 #define ___PPC_RS(s)        (((s) & 0x1f) << 21)
 #define ___PPC_RB(b)        (((b) & 0x1f) << 11)
-#define PPC_TLBIE(lp,a)     S(.long PPC_INST_TLBIE |	\
+#define PPC_TLBIE(lp,a)     SIFY(.long PPC_INST_TLBIE | \
                               ___PPC_RB(a) | ___PPC_RS(lp))
 #define TLBIE_RB_1TB        (1 << 9)
 #define TLBIE_RB_L          (1 << 0)

@@ -64,7 +64,7 @@ isync(void)
 	get_##reg(void)							\
 	{								\
 		uint64_t reg = 0;					\
-		asm volatile("mfspr %0, " S(SPRN_##reg)			\
+		asm volatile("mfspr %0, " SIFY(SPRN_##reg)		\
 			     : "=r" (reg) :: "memory");			\
 		return reg;						\
 	}								\
@@ -73,7 +73,7 @@ isync(void)
 	static inline void						\
 	set_##reg(uint64_t reg)						\
 	{								\
-		asm volatile("mtspr "S(SPRN_##reg)", %0"		\
+		asm volatile("mtspr "SIFY(SPRN_##reg)", %0"		\
 			     :: "r" (reg) : "memory");			\
 	}								\
 

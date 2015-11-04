@@ -21,7 +21,7 @@
 #include <types.h>
 #include <opal.h>
 #include <linkage.h>
-#include <console.h>
+#include <log.h>
 #include <ppc.h>
 #include <string.h>
 #include <kpcr.h>
@@ -86,14 +86,14 @@ exc_handler(eframe_t *frame)
 
 	if (frame->vec == EXC_HDEC) {
 		set_HDEC(DEC_DISABLE);
-		printk("hypervisor decrementer, exception handler with MMU %s!\n",
+		LOG("hypervisor decrementer, exception handler with MMU %s!",
 		       (frame->hsrr1 & (MSR_IR | MSR_DR)) ? "on" : "off");
 		exc_rfi(frame);
 	}
 
 	if (frame->vec == EXC_SC) {
 		if (frame->r3 == 0xdead) {
-			printk("Triggering nested exception crash\n");
+			LOG("Triggering nested exception crash");
 			asm volatile("sc");
 		} else if (frame->r3 == 0x7e57) {
 			eframe_t *ret_frame = (eframe_t *) frame->r4;
@@ -111,29 +111,29 @@ exc_handler(eframe_t *frame)
 			kpcr_get()->kern_sp = frame->r1 - ABI_STACK_PROTECTED_ZONE;
 			ret_from_us = *frame;
 
-			printk("returning to ");
+			LOG("returning to ");
 			if (hsrr1_mask == (MSR_HV | MSR_PR)) {
-				printk("HV user code\n");
+				LOG("HV user code");
 			} else if (hsrr1_mask == MSR_HV) {
-				printk("HV priviledged code\n");
+				LOG("HV priviledged code");
 			} else if (hsrr1_mask == MSR_PR) {
-				printk("VM user code\n");
+				LOG("VM user code");
 			} else if (hsrr1_mask == 0) {
-				printk("VM priviledged code\n");
+				LOG("VM priviledged code");
 			}
 			exc_rfi((eframe_t *) frame->r4);
 		} else if (frame->r3 == 0x1337) {
-			printk("returning back\n");
+			LOG("returning back");
 			exc_rfi(&ret_from_us);
 		} else if (frame->r3 == 0xfeed) {
 			frame->r3 = frame->r3 << 16 |
 				frame->r4;
 		} else if (frame->r3 == 0x1111) {
-			printk("%c", (char) frame->r4);
+			LOG("%c", (char) frame->r4);
 		} else if (frame->r3 == 0x1112) {
-			printk("0x%x\n",frame->r4);
+			LOG("0x%x",frame->r4);
 		} else {
-			printk("unknown sc 0x%x\n",
+			LOG("unknown sc 0x%x",
 			       frame->r3);
 		}
 		exc_rfi(frame);
@@ -141,14 +141,14 @@ exc_handler(eframe_t *frame)
 
 	if (frame->vec == EXC_ISEG ||
 	    frame->vec == EXC_ISI) {
-		printk("Instruction MMU fault at 0x%x\n",
+		LOG("Instruction MMU fault at 0x%x",
 		       frame->hsrr0);
 		goto bad;
 	}
 
 	if (frame->vec == EXC_DSEG ||
 	    frame->vec == EXC_DSI) {
-		printk("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x)\n",
+		LOG("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x)",
 		       frame->hsrr0,
 		       get_DAR(),
 		       get_DSISR());
@@ -156,13 +156,13 @@ exc_handler(eframe_t *frame)
 	}
 
 bad:
-	printk("Unrecoverable exception 0x%x\n"
+	LOG("Unrecoverable exception 0x%x\n"
 	       "PC  = 0x%x\n"
-	       "MSR = 0x%x\n",
+	       "MSR = 0x%x",
 	       frame->vec,
 	       frame->hsrr0, frame->hsrr1);
 
-#define D(x) printk(#x " = 0x%x\n", frame->x)
+#define D(x) LOG(#x " = 0x%x", frame->x)
 	D(r0); D(r1); D(r2); D(r3); D(r4); D(r5);
 	D(r6); D(r7); D(r8); D(r9); D(r10); D(r11);
 	D(r12); D(r13); D(r14); D(r15); D(r16); D(r17);
@@ -171,7 +171,7 @@ bad:
 	D(r30); D(r31); D(lr); D(ctr); D(xer); D(cr);
 #undef D
 
-	printk("Hanging here...\n");
+	LOG("Hanging here...");
 	while(1);
 }
 
@@ -226,7 +226,7 @@ exc_init(void)
 	 * the skiboot patch goes in.
 	 */
 	if (opal_reinit_cpus(OPAL_REINIT_CPUS_HILE_LE) != OPAL_SUCCESS) {
-		printk("OPAL claims no HILE supported, pretend to know better...\n");
+		LOG("OPAL claims no HILE supported, pretend to know better...");
 		uint64_t hid0 = get_HID0();
 		set_HID0(hid0 | HID0_HILE);
 	}
@@ -248,7 +248,7 @@ exc_init(void)
 	 */
 	kpcr_get()->unrec_sp = (uint64_t) mem_alloc(PAGE_SIZE, PAGE_SIZE) +
 		PAGE_SIZE  - sizeof(eframe_t);
-	printk("Unrecoverable exception stack top @ 0x%x\n",
+	LOG("Unrecoverable exception stack top @ 0x%x",
 	       kpcr_get()->unrec_sp);
 
 	/*

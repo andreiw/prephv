@@ -2,12 +2,11 @@ ENV_FILE=build_env
 -include $(ENV_FILE)
 
 OBJ = entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o \
-       exc.o time.o mmu.o mem.o opal.o cache.o
-NAME = ppc64le_hello
+       exc.o time.o mmu.o mem.o opal.o cache.o ctype.o vsprintf.o log.o
+NAME = prephv
 
-ifeq ($(CONFIG_NOSIM), 1)
-BUILD_FLAGS = -DCONFIG_NOSIM
-else
+ifeq ($(CONFIG_MAMBO), 1)
+BUILD_FLAGS = -DCONFIG_MAMBO
 OBJ += mambo.o
 endif
 
@@ -38,7 +37,6 @@ clean_env: log_clean_env clean
 	@echo OLD_BUILD_ENV=\"$(BUILD_ENV)\" > $(ENV_FILE)
 
 test: $(NAME) skiboot/skiboot.lid
-	./run_ppc64le_hello.sh
 
 skiboot/skiboot.lid:
 	git submodule update --init skiboot
@@ -79,7 +77,7 @@ $(NAME): asm-offset.h $(OBJ)
 	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
 
 clean:
-	$(RM) $(NAME) *.o *.o.s *.d asm-offset.h asm-offset.s
+	$(RM) $(NAME) *.o *.o.s *.d *~ asm-offset.h asm-offset.s
 cleaner: clean
 	git submodule deinit -f skiboot
 .PHONY: clean cleaner

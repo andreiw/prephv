@@ -1,6 +1,4 @@
 /*
- * String ops.
- *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,22 +19,46 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include <types.h>
-
-char *strstr(const char *s1, const char *s2);
+int strnicmp(const char *s1, const char *s2, length_t len);
+int strcasecmp(const char *s1, const char *s2);
+int strncasecmp(const char *s1, const char *s2, length_t n);
 char *strcpy(char *dest, const char *src);
-char *strncpy(char *dest, const char *src, length_t n);
+char *strncpy(char *dest, const char *src, length_t count);
+length_t strlcpy(char *dest, const char *src, length_t size);
 char *strcat(char *dest, const char *src);
-int strcmp(const char *s1, const char *s2);
-int strncmp(const char *s1, const char *s2, length_t n);
-length_t strlen(const char *s);
+char *strncat(char *dest, const char *src, length_t count);
+length_t strlcat(char *dest, const char *src, length_t count);
+int strcmp(const char *cs, const char *ct);
+int strncmp(const char *cs, const char *ct, length_t count);
 char *strchr(const char *s, int c);
 char *strrchr(const char *s, int c);
+char *strnchr(const char *s, length_t count, int c);
+char *skip_spaces(const char *str);
+char *strim(char *s);
+length_t strlen(const char *s);
+length_t strnlen(const char *s, length_t count);
+length_t strspn(const char *s, const char *accept);
+length_t strcspn(const char *s, const char *reject);
+char *strpbrk(const char *cs, const char *ct);
+char *strsep(char **s, const char *ct);
+void *memset(void *s, int c, length_t count);
+void *memcpy(void *dest, const void *src, length_t count);
+void *memmove(void *dest, const void *src, length_t count);
+int memcmp(const void *cs, const void *ct, length_t count);
+void *memscan(void *addr, int c, length_t size);
+char *strstr(const char *s1, const char *s2);
+char *strnstr(const char *s1, const char *s2, length_t len);
 void *memchr(const void *s, int c, length_t n);
-void *memset(void *s, int c, length_t n);
-void bcopy(const void *src, void *dest, length_t n);
-void *memcpy(void *dest, const void *src, length_t n);
-void *memmove(void *dest, const void *src, length_t n);
-int memcmp(const void *s1, const void *s2, length_t n);
 
-#endif /* STRING_H */
+extern const char hex_asc[];
+#define hex_asc_lo(x)   hex_asc[((x) & 0x0f)]
+#define hex_asc_hi(x)   hex_asc[((x) & 0xf0) >> 4]
+
+static inline char *pack_hex_byte(char *buf, uint8_t byte)
+{
+        *buf++ = hex_asc_hi(byte);
+        *buf++ = hex_asc_lo(byte);
+        return buf;
+}
+
+#endif

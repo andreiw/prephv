@@ -2,7 +2,6 @@
  * Dumb printing routines
  *
  * Copyright (C) Andrey Warkentin <andrey.warkentin@gmail.com>
- * Copyright (C) 1996 Pete A. Zaitcev
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +23,8 @@
 #include <console.h>
 #include <types.h>
 #include <opal.h>
+#include <vsprintf.h>
+
 
 static void
 _putchar(char c)
@@ -33,8 +34,8 @@ _putchar(char c)
 }
 
 
-static void
-putchar(char c)
+void
+con_putchar(char c)
 {
 	_putchar(c);
 	if (c == '\n') {
@@ -43,8 +44,26 @@ putchar(char c)
 }
 
 
+void
+con_puts(char *s)
+{
+	while (*s != '\0') {
+		con_putchar(*s++);
+	}
+}
+
+
+void
+con_puts_len(char *s,
+	     length_t len)
+{
+	len = cpu_to_be64(len);
+	opal_write(OPAL_TERMINAL_0, ptr_2_ra(&len), ptr_2_ra(s));
+}
+
+
 int
-getchar(void)
+con_getchar(void)
 {
 	char c;
 	opal_return_t ret;
@@ -56,126 +75,4 @@ getchar(void)
 	}
 
 	return c;
-}
-
-
-/*
- * Print a string.
- */
-static void
-printks(char *s)
-{
-	char c;
-	char *null_string = "<NULL>";
-
-	if (s == NULL) {
-		s = null_string;
-	}
-
-	while ((c = *s++) != '\0') {
-		putchar(c);
-	}
-}
-
-
-/*
- * Print an unsigned integer in base b, avoiding recursion.
- */
-static void
-printknu(uint64_t n, uint64_t b)
-{
-	char prbuf[24];
-	register char *cp;
-
-	cp = prbuf;
-	do {
-		*cp++ = "0123456789ABCDEF"[(int) (n % b)];
-	} while ((n = n / b & 0x0FFFFFFFFFFFFFFF) != 0);
-
-	do {
-		putchar (*--cp);
-	} while (cp > prbuf);
-}
-
-
-/*
- * Print an signed integer in base b, avoiding recursion.
- */
-static void
-printkns(uint64_t n, uint64_t b)
-{
-	char prbuf[24];
-	register char *cp;
-
-	if (n < 0) {
-		putchar ('-');
-		n = -n;
-	}
-
-	cp = prbuf;
-	do {
-		*cp++ = "0123456789ABCDEF"[(int) (n % b)];
-	} while ((n = n / b & 0x0FFFFFFFFFFFFFFF) != 0);
-
-	do {
-		putchar (*--cp);
-	} while (cp > prbuf);
-}
-
-
-void
-vprintk(char *fmt, va_list adx)
-{
-	char *s;
-	char c;
-
-	for (;;) {
-		while ((c = *fmt++) != '%') {
-			if (c == '\0') {
-				putchar(0);
-				return;
-			}
-
-			putchar(c);
-		}
-
-		c = *fmt++;
-		if (c == 'u' || c == 'o' ||
-		    c == 'x' || c == 'X') {
-			printknu((uint64_t) va_arg(adx, uint64_t),
-				 c == 'o' ? 8 : (c == 'u' ? 10 : 16));
-		} else if (c == 'i' || c == 'd')  {
-			printkns((uint64_t) va_arg(adx, uint64_t), 10);
-		} else if (c == 'c') {
-			putchar(va_arg(adx, int));
-		} else if (c == 's') {
-			s = va_arg(adx, char *);
-			printks(s);
-		} else if (c == 'p') {
-			s = va_arg(adx, void *);
-			if (s) {
-				putchar('0');
-				putchar('x');
-				printknu((uint64_t) s, 16);
-			} else {
-				printks(NULL);
-			}
-		}
-	}
-}
-
-
-/*
- * Scaled down version of C Library printf.
- * Only %c %s %u %d %i %o %x %p are recognized,
- * and %u %d %i %o and %x operate on 64-bit values.
- */
-void
-printk(char *fmt,...)
-{
-	va_list x1;
-
-	va_start(x1, fmt);
-	vprintk(fmt, x1);
-	va_end(x1);
 }
