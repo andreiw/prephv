@@ -1,8 +1,8 @@
 ENV_FILE=build_env
 -include $(ENV_FILE)
 
-OBJ = entry.o main.o console.o string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o \
-       exc.o time.o mmu.o mem.o opal.o cache.o ctype.o vsprintf.o log.o
+OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o \
+      exc.o time.o mmu.o mem.o opal.o cache.o lib/ctype.o lib/vsprintf.o log.o
 NAME = prephv
 
 ifeq ($(CONFIG_MAMBO), 1)
@@ -18,7 +18,9 @@ ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 \
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin \
              -fno-stack-protector -I./ -Wall -Werror
 
-BUILD_ENV = "CROSS=$(CROSS)|ARCH_FLAGS=$(ARCH_FLAGS)|BUILD_FLAGS=$(BUILD_FLAGS)|OBJ=$(OBJ)"
+CC_FLAGS = -I ./include
+
+BUILD_ENV = "CROSS=$(CROSS)|ARCH_FLAGS=$(ARCH_FLAGS)|CC_FLAGS=$(CC_FLAGS)|BUILD_FLAGS=$(BUILD_FLAGS)|OBJ=$(OBJ)"
 ifneq ($(BUILD_ENV),$(OLD_BUILD_ENV))
 	PRETARGET=clean_env
 else
@@ -56,28 +58,28 @@ asm-offset.h: asm-offset.s
 	sed -ne $(sed-command) $< > $@
 
 asm-offset.s: asm-offset.c
-	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -S $< -o $@
+	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -S $< -o $@
 
 %.o: %.S
-	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -D__ASSEMBLY__ -c -MMD -o $@ $<
+	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -D__ASSEMBLY__ -c -MMD -o $@ $<
 	@cp -f $*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
 
 %.o: %.c
-	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -S $< -o $@.s
-	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -c -MMD -o $@ $<
+	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -S $< -o $@.s
+	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -c -MMD -o $@ $<
 	@cp -f $*.d $*.d.tmp
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
 
 $(NAME): asm-offset.h $(OBJ)
-	$(CC) $(ARCH_FLAGS) $(BUILD_FLAGS) -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
+	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
 
 clean:
-	$(RM) $(NAME) *.o *.o.s *.d *~ asm-offset.h asm-offset.s
+	$(RM) $(NAME) lib/*.o lib/*.d lib/*.o.s lib/*~ *.o *.o.s *.d *~ asm-offset.h asm-offset.s
 cleaner: clean
 	git submodule deinit -f skiboot
 .PHONY: clean cleaner
