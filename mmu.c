@@ -695,7 +695,7 @@ mmu_init(length_t ram_size)
 	 *
 	 * See 5.7.7.4 PowerISA v2.07 p904.
 	 */
-	htab = mem_alloc(htab_size, HTAB_ALIGN);
+	htab = mem_memalign(HTAB_ALIGN, htab_size);
 	LOG("HTAB (%u ptegs, mask 0x%x, size 0x%x) @ %p",
 	       ptegs, htab_hash_mask, htab_size, htab);
 

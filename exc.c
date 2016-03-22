@@ -29,6 +29,8 @@
 #include <exc.h>
 #include <mem.h>
 
+#include <console.h>
+
 /*
  * ppc64le_hello has no concept of threads or per-thread exception stacks,
  * so when we switch into our atrophied user code, so we stash the
@@ -123,7 +125,9 @@ exc_handler(eframe_t *frame)
 			}
 			exc_rfi((eframe_t *) frame->r4);
 		} else if (frame->r3 == 0x1337) {
-			LOG("returning back");
+			LOG("returning back from %u-bit mode",
+			    (frame->hsrr1 & MSR_SF) != 0 ?
+			    64 : 32);
 			exc_rfi(&ret_from_us);
 		} else if (frame->r3 == 0xfeed) {
 			frame->r3 = frame->r3 << 16 |
@@ -133,8 +137,40 @@ exc_handler(eframe_t *frame)
 		} else if (frame->r3 == 0x1112) {
 			LOG("0x%x",frame->r4);
 		} else {
-			LOG("unknown sc 0x%x",
-			       frame->r3);
+			uint32_t *cia = (uint32_t*) frame->r3;
+			/* LOG("OF call %s from 0x%lx", */
+			/*     (char *) (uintptr_t) *cia, frame->lr); */
+
+                        if (!strcmp("exit", (char *) (uintptr_t) *cia)) {
+                          while(1);
+                        } else
+			if (!strcmp("write", (char *) (uintptr_t) *cia)) {
+                          con_puts_len((char *) ra_2_ptr((uintptr_t) *(cia + 4)),
+                                       (uintptr_t) *(cia + 5));
+                        } else if (!strcmp("getprop", (char *) (uintptr_t) *cia)) {
+                          /* WARN("%s", (char *) (uintptr_t) *(cia + 4)); */
+                          frame->r3 = -1;
+			} else if (!strcmp("claim", (char *) (uintptr_t) *cia)) {
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 1)); */
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 2)); */
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 3)); */
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 4)); */
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 5)); */
+                          /* WARN("0x%lx", (char *) (uintptr_t) *(cia + 6)); */
+                          if ((uintptr_t) *(cia + 5) != 0) {
+                            static uint64_t foo = MB(128);
+                            foo -= ALIGN_UP((uintptr_t) *(cia + 4), 4096);
+                            *(cia + 6) = (uint32_t) foo;
+                            /* LOG("allocated at RA 0x%lx", foo); */
+                            frame->r3 = 0;
+                          } else {
+                            *(cia + 6) = *(cia + 3);
+                            /* LOG("claimed at RA 0x%lx", *(cia + 6)); */
+                            frame->r3 = 0;
+                          }
+                        }
+
+			frame->hsrr0 = frame->lr;
 		}
 		exc_rfi(frame);
 	}
@@ -156,11 +192,12 @@ exc_handler(eframe_t *frame)
 	}
 
 bad:
-	LOG("Unrecoverable exception 0x%x\n"
-	       "PC  = 0x%x\n"
-	       "MSR = 0x%x",
-	       frame->vec,
-	       frame->hsrr0, frame->hsrr1);
+	LOG("Unrecoverable exception 0x%x from %u-bit\n"
+	    "PC  = 0x%x\n"
+	    "MSR = 0x%x",
+	    frame->vec,
+	    (frame->hsrr1 & MSR_SF) != 0 ? 64 : 32,
+	    frame->hsrr0, frame->hsrr1);
 
 #define D(x) LOG(#x " = 0x%x", frame->x)
 	D(r0); D(r1); D(r2); D(r3); D(r4); D(r5);
@@ -246,7 +283,7 @@ exc_init(void)
 	/*
 	 * Exception stack.
 	 */
-	kpcr_get()->unrec_sp = (uint64_t) mem_alloc(PAGE_SIZE, PAGE_SIZE) +
+	kpcr_get()->unrec_sp = (uint64_t) mem_memalign(PAGE_SIZE, PAGE_SIZE) +
 		PAGE_SIZE  - sizeof(eframe_t);
 	LOG("Unrecoverable exception stack top @ 0x%x",
 	       kpcr_get()->unrec_sp);

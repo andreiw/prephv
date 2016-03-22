@@ -1,5 +1,5 @@
 /*
- * Basic allocator.
+ * Basic allocator support.
  *
  * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
@@ -23,6 +23,6 @@
 
 #include <types.h>
 
-void *mem_alloc(length_t size, length_t align);
+void *mem_memalign(size_t align, size_t size);
 
 #endif /* MEM_H */

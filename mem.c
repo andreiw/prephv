@@ -21,15 +21,16 @@
 #include <types.h>
 #include <defs.h>
 #include <linkage.h>
+#include <assert.h>
 
-static void *base = &_end;
+static uint8_t *base = (uint8_t *) &_end;
+intptr_t sbrk_size = 0;
 
 
 void *
-mem_alloc(length_t size,
-	  length_t align)
+mem_sbrk(intptr_t diff)
 {
-	void *a = PALIGN_UP(base, align);
-	base = (void *) ((uint64_t) a + size);
-	return a;
+	BUG_ON((sbrk_size + diff) < 0, "%z makes sbrk_size go under", diff);
+	base += diff;
+	return base;
 }

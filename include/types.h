@@ -32,11 +32,13 @@ typedef signed short int16_t;
 typedef signed int int32_t;
 typedef signed long int64_t;
 typedef uint64_t uintptr_t;
+typedef int64_t intptr_t;
 typedef uint64_t __be64;
 
 typedef uint64_t vaddr_t;
 typedef uint64_t offset_t;
 typedef uint64_t length_t;
+typedef uint64_t size_t;
 typedef uint64_t count_t;
 
 typedef _Bool bool_t;

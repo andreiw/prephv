@@ -2,7 +2,7 @@ ENV_FILE=build_env
 -include $(ENV_FILE)
 
 OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o \
-      exc.o time.o mmu.o mem.o opal.o cache.o lib/ctype.o lib/vsprintf.o log.o
+      exc.o time.o mmu.o mem.o opal.o cache.o lib/ctype.o lib/vsprintf.o log.o lib/malloc.o
 NAME = prephv
 
 ifeq ($(CONFIG_MAMBO), 1)

@@ -35,6 +35,8 @@
 #include <mmu.h>
 #include <mem.h>
 #include <log.h>
+#include "layout.h"
+#include "veneer.h"
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -182,19 +184,6 @@ cpu_init(void *fdt)
 	 * Enable interrupts.
 	 */
 	exc_enable_ee();
-	LOG("we are alive!");
-
-	LOG("We're alive!");
-	WARN("We're alive!");
-	ERROR("We're alive!");
-
-	{
-		void dump_nodes(void *fdt);
-		dump_nodes(fdt);
-	}
-
-	FATAL("We're alive!");
-	while(1);
 }
 
 
@@ -261,7 +250,7 @@ test_hv(void)
 	eframe_t uframe;
 
 	if (upage == NULL) {
-		upage = mem_alloc(PAGE_SIZE, PAGE_SIZE);
+		upage = mem_memalign(PAGE_SIZE, PAGE_SIZE);
 	}
 
 	/*
@@ -312,7 +301,7 @@ test_u(void)
 	ea_t ea = TB(1) - PAGE_SIZE;
 
 	if (upage == NULL) {
-		upage = mem_alloc(PAGE_SIZE, PAGE_SIZE);
+		upage = mem_memalign(PAGE_SIZE, PAGE_SIZE);
 	}
 
 	if (!en) {
@@ -375,11 +364,11 @@ test_mmu_16mb(void)
 	static uint64_t *p2 = NULL;
 
 	if (p1 == NULL) {
-		p1 = mem_alloc(MB(16), MB(16));
+		p1 = mem_memalign(MB(16), MB(16));
 	}
 
 	if (p2 == NULL) {
-		p2 = mem_alloc(MB(16), MB(16));
+		p2 = mem_memalign(MB(16), MB(16));
 	}
 
 	if (!en) {
@@ -693,4 +682,52 @@ c_main(ra_t fdt_ra)
 	fdt = ra_2_ptr(fdt_ra);
 
 	cpu_init(fdt);
+
+	/*
+	 * Guest memory.
+	 */
+	{
+		eframe_t uframe;
+		uint32_t hvcall = 0x44000022; /* sc 1 */
+		void *gram = mem_memalign(MB(1), MB(128));
+
+		LOG("HV pointer to GRAM %p", gram);
+		LOG("Guest RAM at RA 0x%lx", ptr_2_ra(gram));
+
+		mmu_map_range(LAYOUT_VM_START,
+			      LAYOUT_VM_START + MB(128),
+			      ptr_2_ra(gram),
+			      PP_RWRW,
+			      PAGE_4K);
+
+		memcpy((void *) (LAYOUT_VM_START + 0x00050000),
+		       veneer_exe + 0x200,
+		       veneer_exe_len - 0x200);
+		lwsync();
+		flush_cache(LAYOUT_VM_START + 0x00050000,
+			    veneer_exe_len - 0x200);
+
+		memcpy((void *) (LAYOUT_VM_START + 0x4), &hvcall, 4);
+		lwsync();
+		flush_cache(LAYOUT_VM_START + 0x4, 4);
+
+		memset(&uframe, 0, sizeof(uframe));
+		uframe.r1 = LAYOUT_VM_START + 0x00050000 - STACKFRAMESIZE;
+		uframe.r5 = LAYOUT_VM_START + 0x4;
+		uframe.hsrr0 = LAYOUT_VM_START + 0x00050000;
+		uframe.hsrr1 = (mfmsr() ^ MSR_SF) | MSR_PR;
+
+		/*
+		 * Force switch into user code. The exception handler stashes
+		 * the kernel state behind in a global (sigh), which is magically
+		 * restored on a test_syscall(0x1337, 0). The things we do
+		 * to avoid writing an actual scheduler.
+		 */
+		kpcr_get()->kern_sp = (uint64_t) &uframe;
+		exc_disable_ee();
+		exc_rfi(&uframe);
+		/* test_syscall(0x7e57, (uint64_t) &uframe); */
+		WARN("we're back");
+	}
+	while(1);
 }
