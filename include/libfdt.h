@@ -268,6 +268,7 @@ int fdt_get_mem_rsv(const void *fdt, int n, uint64_t *address, uint64_t *size);
  * useful for finding subnodes based on a portion of a larger string,
  * such as a full path.
  */
+int fdt_subnode(const void *fdt, int offset);
 int fdt_subnode_offset_namelen(const void *fdt, int parentoffset,
 			       const char *name, int namelen);
 /**
@@ -280,6 +281,7 @@ int fdt_subnode_offset_namelen(const void *fdt, int parentoffset,
  * Typically used to continue the search started with
  * fdt_subnode_offset_namelen() using the same matching rules.
  */
+int fdt_sibling(const void *fdt, int offset);
 int fdt_sibling_offset_namelen(const void *fdt, int fromoffset,
 			       const char *name, int namelen);
 /**

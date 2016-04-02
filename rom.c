@@ -25,6 +25,14 @@
 #include <mmu.h>
 #include <prep_dtb.h>
 #include <libfdt.h>
+#include <time.h>
+
+#undef WARN
+#undef LOG
+#undef ERROR
+#define LOG(x, ...)
+#define WARN(x, ...)
+#define ERROR(X, ...)
 
 uint32_t
 rom_claim(uint32_t addr, uint32_t size, uint32_t align)
@@ -76,27 +84,117 @@ rom_call(eframe_t *frame)
 			*ihandle = node;
 			frame->r3 = 0;
 		}
-		
+	} else if (!strcmp("milliseconds", (char *) (uintptr_t) *cia)) {
+		uint32_t *ms = (cia + 3);
+		*ms = tb_to_ms(mftb());
+		frame->r3 = 0;
+	} else if (!strcmp("peer",(char *) (uintptr_t) *cia)) {
+		ERROR("%x %x %x", *(cia + 1), *(cia + 2), *(cia + 3));
+		int node = *(cia + 3);
+		int n;
+
+		if (node == 0) {
+			n = fdt_subnode(prep_dtb, node);
+		} else {
+			n = fdt_sibling(prep_dtb, node);
+		}
+
+		if (n < 0) {
+			ERROR("%x has no peer", node);
+			frame->r3 = -1;
+		} else {
+			ERROR("%x has peer %x", node, n);
+			*(cia + 4) = n;
+			frame->r3 = 0;
+		}
+	} else if (!strcmp("child",(char *) (uintptr_t) *cia)) {
+		int node = *(cia + 3);
+
+		if (node == 0) {
+			frame->r3 = -1;
+		} else {
+			int n = fdt_subnode(prep_dtb, node);
+			if (n < 0) {
+				ERROR("%x has no child", node);
+				frame->r3 = -1;
+			} else {
+				ERROR("%x has child %x", node, n);
+				*(cia + 4) = n;
+				frame->r3 = 0;
+			}
+		}
+	} else if (!strcmp("parent",(char *) (uintptr_t) *cia)) {
+		int node = *(cia + 3);
+
+		if (node == 0) {
+			frame->r3 = -1;
+		} else {
+			int n = fdt_parent_offset(prep_dtb, node);
+			if (n < 0) {
+				ERROR("%x has no parent", node);
+				frame->r3 = -1;
+			} else {
+				ERROR("%x has parent %x", node, n);
+				*(cia + 4) = n;
+				frame->r3 = 0;
+			}
+		}
 	} else if (!strcmp("exit", (char *) (uintptr_t) *cia)) {
 		while(1);
 	} else if (!strcmp("write", (char *) (uintptr_t) *cia)) {
 		con_puts_len((char *) ra_2_ptr((uintptr_t) *(cia + 4)),
 			     (uintptr_t) *(cia + 5));
+	} else if (!strcmp("getproplen", (char *) (uintptr_t) *cia)) {
+		const void *data;
+		int node  = *(cia + 3);
+		char *name = (char *) (uintptr_t) *(cia + 4);
+		uint32_t *lenp = cia + 5;
+		int len;
+
+		WARN("getproplen %s", name);
+
+		if (!strcmp(name, "name")) {
+			data = fdt_get_name(prep_dtb,
+					    node,
+					    &len);
+			BUG_ON(data == NULL, "fdt_get_name failed");
+		} else {
+			data = fdt_getprop(prep_dtb,
+					   node, name,
+					   &len);
+		}
+
+		if (data == NULL) {
+			frame->r3 = -1;
+		} else {
+			WARN("found with len %x", len);
+			*lenp = len;
+			frame->r3 = 0;
+		}
 	} else if (!strcmp("getprop", (char *) (uintptr_t) *cia)) {
 		const void *data;
+		int node  = *(cia + 3);
+		char *name = (char *) (uintptr_t) *(cia + 4);
 		int len;
 		
 		WARN("node %x %s -> %x (%x bytes) (ptr for size %x)",
-		     (uintptr_t) *(cia + 3),
-		     (char *) (uintptr_t) *(cia + 4),
+		     node, name,
 		     (uintptr_t) *(cia + 5),
 		     (uintptr_t) *(cia + 6),
 		     (uintptr_t) (cia + 7));
 
-		data = fdt_getprop(prep_dtb,
-				   (uintptr_t) *(cia + 3),
-				   (char *) (uintptr_t) *(cia + 4),
-				   &len);
+		if (!strcmp(name, "name")) {
+			data = fdt_get_name(prep_dtb,
+					    node,
+					    &len);
+			BUG_ON(data == NULL, "fdt_get_name failed");
+		} else {
+			data = fdt_getprop(prep_dtb,
+					   node,
+					   name,
+					   &len);
+		}
+
 		if (data == NULL) {
 			frame->r3 = -1;
 		} else {
@@ -106,7 +204,6 @@ rom_call(eframe_t *frame)
 			*(uint32_t *) (uintptr_t) (cia + 7) = len;
 			frame->r3 = 0;
 		}
-
 	} else if (!strcmp("call-method", (char *) (uintptr_t) *cia)) {
 		WARN("in %x out %x %s on ihandle %x",
 		     (char *) (uintptr_t) *(cia + 1),
@@ -135,7 +232,7 @@ rom_call(eframe_t *frame)
 			if (phys == virt) {
 				*(cia + 9) = 0; // map succeeded
 			} else {
-				BUG_ON(1, "virt != phys mapping");
+				ERROR("virt != phys mapping unsupported");
 				*(cia + 9) = -1; // map failed
 			}
 			frame->r3 = 0;
@@ -150,6 +247,8 @@ rom_call(eframe_t *frame)
 
 		*(cia + 6) = rom_claim(*(cia + 3), *(cia + 4), *(cia + 5));
 		frame->r3 = 0;
+	} else {
+		ERROR("unknown %s", (char *) (uintptr_t) *cia);
 	}
 
 	frame->hsrr0 = frame->lr;

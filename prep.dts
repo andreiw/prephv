@@ -15,8 +15,8 @@
 		cpu: cpu@0 {
 			device_type = "cpu";
 			reg = <0>;
-			d-cache-line-size = <32>;	// 32 bytes
-			i-cache-line-size = <32>;	// 32 bytes
+			d-cache-block-size = <32>;	// 32 bytes
+			i-cache-block-size = <32>;	// 32 bytes
 			d-cache-size = <32768>;		// L1, 32K
 			i-cache-size = <32768>;		// L1, 32K
 			timebase-frequency = <25000000>;
@@ -120,6 +120,7 @@
 	};
 
 	chosen {
+		bootargs = "-vrdebug 0xffffffff";
 		stdout = <&console>;
 		memory = <&mem>;
 		mmu = <&cpu>;

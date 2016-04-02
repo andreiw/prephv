@@ -105,6 +105,24 @@ int fdt_num_mem_rsv(const void *fdt)
 	return i;
 }
 
+int fdt_subnode(const void *fdt, int offset)
+{
+	int depth;
+
+	FDT_CHECK_HEADER(fdt);
+
+	for (depth = 0;
+	     (offset >= 0) && (depth >= 0);
+	     offset = fdt_next_node(fdt, offset, &depth))
+		if (depth == 1)
+			return offset;
+
+	if (depth < 0)
+		return -FDT_ERR_NOTFOUND;
+	return offset; /* error */
+
+}
+
 int fdt_subnode_offset_namelen(const void *fdt, int offset,
 			       const char *name, int namelen)
 {
@@ -118,6 +136,24 @@ int fdt_subnode_offset_namelen(const void *fdt, int offset,
 		if ((depth == 1)
 		    && _fdt_nodename_eq(fdt, offset, name, namelen))
 			return offset;
+
+	if (depth < 0)
+		return -FDT_ERR_NOTFOUND;
+	return offset; /* error */
+}
+
+int fdt_sibling(const void *fdt, int offset)
+{
+	int depth;
+
+	FDT_CHECK_HEADER(fdt);
+
+	for (depth = 1, offset = fdt_next_node(fdt, offset, &depth);
+	     (offset >= 0) && (depth >= 1);
+	     offset = fdt_next_node(fdt, offset, &depth)) {
+		if (depth == 1)
+			return offset;
+	}
 
 	if (depth < 0)
 		return -FDT_ERR_NOTFOUND;
