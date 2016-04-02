@@ -54,6 +54,12 @@ define sed-command
 	s:->::; p;}"
 endef
 
+prep_dtb.h: prep.dtb
+	xxd -i $< > $@
+
+prep.dtb: prep.dts
+	dtc $< -O dtb > $@
+
 asm-offset.h: asm-offset.s
 	sed -ne $(sed-command) $< > $@
 
@@ -75,7 +81,7 @@ asm-offset.s: asm-offset.c
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
 
-$(NAME): asm-offset.h $(OBJ)
+$(NAME): asm-offset.h prep_dtb.h $(OBJ)
 	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
 
 clean:
