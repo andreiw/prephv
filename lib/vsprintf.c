@@ -243,6 +243,7 @@ enum format_type {
 	FORMAT_TYPE_CHAR,
 	FORMAT_TYPE_STR,
 	FORMAT_TYPE_PTR,
+	FORMAT_TYPE_ERROR,
 	FORMAT_TYPE_PERCENT_CHAR,
 	FORMAT_TYPE_INVALID,
 	FORMAT_TYPE_LONG_LONG,
@@ -418,6 +419,22 @@ char *string(char *buf, char *end, const char *s, struct printf_spec spec)
 	}
 
 	return buf;
+}
+
+static
+char *err_string(err_t error)
+{
+#define ERR_DEF(e, s) s,
+	static char *errors[] = {
+		ERR_LIST
+	};
+#undef ERR_DEF
+
+	if (error < ERR_INVALID) {
+		return errors[error];
+	} else {
+		return errors[ERR_INVALID];
+	}
 }
 
 static
@@ -650,6 +667,10 @@ qualifier:
 		spec->type = FORMAT_TYPE_CHAR;
 		return ++fmt - start;
 
+	case 'r':
+		spec->type = FORMAT_TYPE_ERROR;
+		return ++fmt - start;
+
 	case 's':
 		spec->type = FORMAT_TYPE_STR;
 		return ++fmt - start;
@@ -830,6 +851,10 @@ int vsnprintf(char *buf, length_t size, const char *fmt, va_list args)
 
 		case FORMAT_TYPE_STR:
 			str = string(str, end, va_arg(args, char *), spec);
+			break;
+
+		case FORMAT_TYPE_ERROR:
+			str = string(str, end, err_string(va_arg(args, err_t)), spec);
 			break;
 
 		case FORMAT_TYPE_PTR:

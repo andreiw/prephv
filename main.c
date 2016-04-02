@@ -35,7 +35,8 @@
 #include <mmu.h>
 #include <mem.h>
 #include <log.h>
-#include "layout.h"
+#include <guest.h>
+#include <layout.h>
 #include "veneer.h"
 
 #define HELLO_MAMBO "Hello Mambo!\n"
@@ -687,18 +688,12 @@ c_main(ra_t fdt_ra)
 	 * Guest memory.
 	 */
 	{
+		err_t err;
 		eframe_t uframe;
 		uint32_t hvcall = 0x44000022; /* sc 1 */
-		void *gram = mem_memalign(MB(1), MB(128));
 
-		LOG("HV pointer to GRAM %p", gram);
-		LOG("Guest RAM at RA 0x%lx", ptr_2_ra(gram));
-
-		mmu_map_range(LAYOUT_VM_START,
-			      LAYOUT_VM_START + MB(128),
-			      ptr_2_ra(gram),
-			      PP_RWRW,
-			      PAGE_4K);
+		err = guest_init(MB(128));
+		BUG_ON(err != ERR_NONE, "guest init failed");
 
 		memcpy((void *) (LAYOUT_VM_START + 0x00050000),
 		       veneer_exe + 0x200,
@@ -726,8 +721,6 @@ c_main(ra_t fdt_ra)
 		kpcr_get()->kern_sp = (uint64_t) &uframe;
 		exc_disable_ee();
 		exc_rfi(&uframe);
-		/* test_syscall(0x7e57, (uint64_t) &uframe); */
-		WARN("we're back");
 	}
 	while(1);
 }

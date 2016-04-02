@@ -24,10 +24,7 @@
 #include <types.h>
 #include <assert.h>
 
-typedef uint64_t ra_t;
-typedef uint64_t ea_t;
 typedef uint64_t prot_t;
-
 
 static inline ra_t
 ptr_2_ra(void *addr) {

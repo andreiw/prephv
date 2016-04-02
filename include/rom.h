@@ -1,7 +1,7 @@
 /*
- * Basic allocator support.
+ * OF emulation, enough for the ARC veneer anyway.
  *
- * Copyright (C) 2015 Andrei Warkentin <andrey.warkentin@gmail.com>
+ * Copyright (C) 2016 Andrei Warkentin <andrey.warkentin@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,12 +18,19 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef MEM_H
-#define MEM_H
+#ifndef ROM_H
+#define ROM_H
 
 #include <types.h>
+#include <exc.h>
 
-void *mem_malloc(size_t size);
-void *mem_memalign(size_t align, size_t size);
+typedef struct rom_t
+{
+	gra_t claim_arena_start;
+	gra_t claim_arena_ptr;
+	gra_t claim_arena_end;
+} rom_t;
 
-#endif /* MEM_H */
+err_t rom_call(eframe_t *frame);
+
+#endif /* ROM_H */

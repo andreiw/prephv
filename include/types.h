@@ -53,4 +53,24 @@ typedef _Bool bool_t;
 #define LONG_MIN        (-LONG_MAX - 1)
 #define ULONG_MAX       (~0UL)
 
+/* System address, RA and EA. */
+typedef uint64_t ra_t;
+typedef uint64_t ea_t;
+
+/* Guest addreses, RA and EA. */
+typedef uint64_t gra_t;
+typedef uint64_t gea_t;
+
+#define ERR_LIST							\
+	ERR_DEF(ERR_NONE, "no error")					\
+	ERR_DEF(ERR_UNSUPPORTED, "not supported")			\
+	ERR_DEF(ERR_NO_MEM, "no memory")				\
+	ERR_DEF(ERR_INVALID, "invalid error, likely a bug") /* last */
+
+#define ERR_DEF(e, s) e,
+typedef enum {
+  ERR_LIST
+} err_t;
+#undef ERR_DEF
+
 #endif /* TYPES_H */
