@@ -29,10 +29,69 @@
 
 #undef WARN
 #undef LOG
-#undef ERROR
 #define LOG(x, ...)
 #define WARN(x, ...)
-#define ERROR(X, ...)
+
+int
+rom_stdin(char *buf, uint32_t len)
+{
+	char *start = buf;
+	char *end = buf + len;
+
+	while (buf < end) {
+		static bool_t csi = false;
+		char prev_c = 0;
+		int c;
+
+		if (prev_c != 0) {
+			*buf = prev_c;
+			buf++;
+			prev_c = 0;
+		} else {
+			c = con_getchar();
+			if (c == NO_CHAR) {
+				break;
+			}
+
+			if (csi) {
+				if (c == '[') {
+					*buf = 0x9b;
+					buf++;
+				} else {
+					*buf = '\33';
+					buf++;
+					prev_c = c;
+				}
+
+				csi = false;
+			} else {
+				if (c == '\33') {
+					csi = true;
+				} else {
+					*buf = c;
+					buf++;
+				}
+			}
+		}
+	}
+
+	return buf - start;
+}
+
+void
+rom_stdout(char *s, uint32_t len)
+{
+	while (len--) {
+		if (*s == 0x9b) {
+			con_putchar('\33');
+			con_putchar('[');
+		} else {
+			con_putchar(*s);
+		}
+		s++;
+	}
+}
+
 
 uint32_t
 rom_claim(uint32_t addr, uint32_t size, uint32_t align)
@@ -142,8 +201,17 @@ rom_call(eframe_t *frame)
 	} else if (!strcmp("exit", (char *) (uintptr_t) *cia)) {
 		while(1);
 	} else if (!strcmp("write", (char *) (uintptr_t) *cia)) {
-		con_puts_len((char *) ra_2_ptr((uintptr_t) *(cia + 4)),
-			     (uintptr_t) *(cia + 5));
+		char *data = (char *) (uintptr_t) *(cia + 4);
+		uint32_t len = *(cia + 5);
+		rom_stdout(data, len);
+		frame->r3 = 0;
+	} else if (!strcmp("read", (char *) (uintptr_t) *cia)) {
+		char *data = (char *) (uintptr_t) *(cia + 4);
+		uint32_t len = *(cia + 5);
+		uint32_t *outlen = (cia + 6);
+
+		*outlen = rom_stdin(data, len);
+		frame->r3 = 0;
 	} else if (!strcmp("getproplen", (char *) (uintptr_t) *cia)) {
 		const void *data;
 		int node  = *(cia + 3);
@@ -198,7 +266,7 @@ rom_call(eframe_t *frame)
 		if (data == NULL) {
 			frame->r3 = -1;
 		} else {
-			WARN("found with len %x", len);
+			WARN("found with len %x data %x", len, *(uint32_t *) data);
 			memcpy((void *) (uintptr_t) *(cia + 5),
 			       data, len);
 			*(uint32_t *) (uintptr_t) (cia + 7) = len;
@@ -224,16 +292,22 @@ rom_call(eframe_t *frame)
 		} else if (!strcmp("map", (char *) (uintptr_t) *(cia + 3))) {
 			uint32_t virt =  *(cia + 7);
 			uint32_t phys =  *(cia + 8);
+			uint32_t size = *(cia + 6);
 			WARN("mode 0x%lx", (uintptr_t) *(cia + 5));
-			WARN("size 0x%lx", (uintptr_t) *(cia + 6));
+			WARN("size 0x%lx", size);
 			WARN("virtual 0x%lx",  (uintptr_t) virt);
 			WARN("physical 0x%lx", (uintptr_t) phys);
 
 			if (phys == virt) {
 				*(cia + 9) = 0; // map succeeded
 			} else {
-				ERROR("virt != phys mapping unsupported");
-				*(cia + 9) = -1; // map failed
+				WARN("mapping phys 0x%x (RAM 0x%lx RA 0x%lx) to 0x%x",
+				     phys, phys + guest->ram,
+				     ptr_2_ra(phys + guest->ram), virt);
+				mmu_map_range(virt, virt + size,
+					      ptr_2_ra(phys + guest->ram),
+					      PP_RWRW, PAGE_4K);
+				*(cia + 9) = 0; // success
 			}
 			frame->r3 = 0;
 		}
@@ -247,6 +321,25 @@ rom_call(eframe_t *frame)
 
 		*(cia + 6) = rom_claim(*(cia + 3), *(cia + 4), *(cia + 5));
 		frame->r3 = 0;
+	} else if (!strcmp("instance-to-path", (char *) (uintptr_t) *cia)) {
+		int node;
+		int i = *(cia + 3);
+		char *buf = (char *) (uintptr_t) *(cia + 4);
+		int buflen = *(cia + 5);
+		WARN("i2p %x -> buf at %x len %x", i, buf, buflen);
+
+		node = fdt_node_offset_by_phandle(prep_dtb,
+						  i);
+		if (node < 0) {
+			frame->r3 = -1;
+		} else {
+			if (fdt_get_path(prep_dtb, node, buf, buflen) == 0) {
+				WARN("get path got %s", buf);
+				frame->r3 = 0;
+			} else {
+				frame->r3 = -1;
+			}
+		}
 	} else {
 		ERROR("unknown %s", (char *) (uintptr_t) *cia);
 	}

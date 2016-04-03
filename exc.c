@@ -40,6 +40,19 @@ exc_handler(eframe_t *frame)
 		goto bad;
 	}
 
+	if (frame->vec == EXC_PROG) {
+#define PPC_INST_MFSPR_PVR              0x7c1f42a6
+#define PPC_INST_MFSPR_PVR_MASK         0xfc1fffff
+		uint32_t *i = (uint32_t *) frame->hsrr0;
+		WARN("PROG from %x, insn 0x%x",  frame->hsrr0, *i);
+		if ((*i & PPC_INST_MFSPR_PVR_MASK) == PPC_INST_MFSPR_PVR) {
+			/* 604 */
+			(&frame->r0)[(*i >> 21) & 0x1f] = 0x00040103;
+			frame->hsrr0 += 4;
+			exc_rfi(frame);
+		}
+	}
+
 	/*
 	 * Handle instruction storage faults within the HV address
 	 * region (which is direct-mapped to 0). When the MMU is off,

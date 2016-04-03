@@ -30,6 +30,15 @@
 		reg = <0 0x8000000>;
 	};
 
+	fake-storage {
+		device_type = "scsi";
+		model = "fake";
+
+		bootdev: disk {
+			device_type = "block";
+		};
+	};
+
 	pci@80000000 {
 		device_type = "pci";
 		compatible = "prep-pci";
@@ -117,11 +126,15 @@
 	};
 
 	options {
+		// LOADIDENTIFIER = "foo;bar;baz";
 	};
 
 	chosen {
+		// bootargs = "";
 		bootargs = "-vrdebug 0xffffffff";
+		bootpath = &bootdev;
 		stdout = <&console>;
+		stdin = <&console>;
 		memory = <&mem>;
 		mmu = <&cpu>;
 	};
