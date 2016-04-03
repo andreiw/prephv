@@ -31,7 +31,7 @@
 	};
 
 	fake-storage {
-		device_type = "scsi";
+		device_type = "isa";
 		model = "fake";
 
 		bootdev: disk {

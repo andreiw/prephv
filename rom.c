@@ -27,10 +27,13 @@
 #include <libfdt.h>
 #include <time.h>
 
-#undef WARN
-#undef LOG
-#define LOG(x, ...)
-#define WARN(x, ...)
+#define NODE_MUNGE(x) (x + 0x10000000)
+#define NODE_DEMUNGE(x) (x - 0x10000000)
+
+/* #undef WARN */
+/* #undef LOG */
+/* #define LOG(x, ...) */
+/* #define WARN(x, ...) */
 
 int
 rom_stdin(char *buf, uint32_t len)
@@ -140,7 +143,7 @@ rom_call(eframe_t *frame)
 			frame->r3 = -1;
 		} else {
 			WARN("%s -> %x @ %x", dev, node, ihandle);
-			*ihandle = node;
+			*ihandle = NODE_MUNGE(node);
 			frame->r3 = 0;
 		}
 	} else if (!strcmp("milliseconds", (char *) (uintptr_t) *cia)) {
@@ -153,8 +156,9 @@ rom_call(eframe_t *frame)
 		int n;
 
 		if (node == 0) {
-			n = fdt_subnode(prep_dtb, node);
+			n = 0;
 		} else {
+			node = NODE_DEMUNGE(node);
 			n = fdt_sibling(prep_dtb, node);
 		}
 
@@ -163,7 +167,7 @@ rom_call(eframe_t *frame)
 			frame->r3 = -1;
 		} else {
 			ERROR("%x has peer %x", node, n);
-			*(cia + 4) = n;
+			*(cia + 4) = NODE_MUNGE(n);
 			frame->r3 = 0;
 		}
 	} else if (!strcmp("child",(char *) (uintptr_t) *cia)) {
@@ -172,13 +176,15 @@ rom_call(eframe_t *frame)
 		if (node == 0) {
 			frame->r3 = -1;
 		} else {
+			node = NODE_DEMUNGE(node);
+
 			int n = fdt_subnode(prep_dtb, node);
 			if (n < 0) {
 				ERROR("%x has no child", node);
 				frame->r3 = -1;
 			} else {
 				ERROR("%x has child %x", node, n);
-				*(cia + 4) = n;
+				*(cia + 4) = NODE_MUNGE(n);
 				frame->r3 = 0;
 			}
 		}
@@ -188,13 +194,15 @@ rom_call(eframe_t *frame)
 		if (node == 0) {
 			frame->r3 = -1;
 		} else {
+			node = NODE_DEMUNGE(node);
+
 			int n = fdt_parent_offset(prep_dtb, node);
 			if (n < 0) {
 				ERROR("%x has no parent", node);
 				frame->r3 = -1;
 			} else {
 				ERROR("%x has parent %x", node, n);
-				*(cia + 4) = n;
+				*(cia + 4) = NODE_MUNGE(n);
 				frame->r3 = 0;
 			}
 		}
@@ -214,18 +222,24 @@ rom_call(eframe_t *frame)
 		frame->r3 = 0;
 	} else if (!strcmp("getproplen", (char *) (uintptr_t) *cia)) {
 		const void *data;
-		int node  = *(cia + 3);
+		int node = *(cia + 3);
 		char *name = (char *) (uintptr_t) *(cia + 4);
 		uint32_t *lenp = cia + 5;
 		int len;
 
-		WARN("getproplen %s", name);
+		WARN("getproplen %s %x", name, node);
+		node = NODE_DEMUNGE(node);
 
 		if (!strcmp(name, "name")) {
-			data = fdt_get_name(prep_dtb,
-					    node,
-					    &len);
-			BUG_ON(data == NULL, "fdt_get_name failed");
+			if (node == 0) {
+				data = "/";
+				len = 1;
+			} else {
+				data = fdt_get_name(prep_dtb,
+						    node,
+						    &len);
+				BUG_ON(data == NULL, "fdt_get_name failed for 0x%x", node);
+			}
 		} else {
 			data = fdt_getprop(prep_dtb,
 					   node, name,
@@ -243,6 +257,7 @@ rom_call(eframe_t *frame)
 		const void *data;
 		int node  = *(cia + 3);
 		char *name = (char *) (uintptr_t) *(cia + 4);
+		node = NODE_DEMUNGE(node);
 		int len;
 		
 		WARN("node %x %s -> %x (%x bytes) (ptr for size %x)",
@@ -252,10 +267,15 @@ rom_call(eframe_t *frame)
 		     (uintptr_t) (cia + 7));
 
 		if (!strcmp(name, "name")) {
-			data = fdt_get_name(prep_dtb,
-					    node,
-					    &len);
-			BUG_ON(data == NULL, "fdt_get_name failed");
+			if (node == 0) {
+				data = "/";
+				len = 1;
+			} else {
+				data = fdt_get_name(prep_dtb,
+						    node,
+						    &len);
+				BUG_ON(data == NULL, "fdt_get_name failed for %x", node);
+			}
 		} else {
 			data = fdt_getprop(prep_dtb,
 					   node,
@@ -326,18 +346,51 @@ rom_call(eframe_t *frame)
 		int i = *(cia + 3);
 		char *buf = (char *) (uintptr_t) *(cia + 4);
 		int buflen = *(cia + 5);
+		uint32_t *outlen = (cia + 6);
 		WARN("i2p %x -> buf at %x len %x", i, buf, buflen);
 
-		node = fdt_node_offset_by_phandle(prep_dtb,
-						  i);
-		if (node < 0) {
-			frame->r3 = -1;
+		if (buflen == 0) {
+			*outlen = 120;
+			frame->r3 = 0;
 		} else {
-			if (fdt_get_path(prep_dtb, node, buf, buflen) == 0) {
-				WARN("get path got %s", buf);
-				frame->r3 = 0;
-			} else {
+			node = fdt_node_offset_by_phandle(prep_dtb,
+							  i);
+			if (node < 0) {
 				frame->r3 = -1;
+			} else {
+				if (fdt_get_path(prep_dtb, node, buf, buflen) == 0) {
+					WARN("get path got %s", buf);
+					frame->r3 = 0;
+					*outlen = buflen;
+				} else {
+					frame->r3 = -1;
+				}
+			}
+		}
+	} else if (!strcmp("package-to-path", (char *) (uintptr_t) *cia)) {
+		int node;
+		int p = *(cia + 3);
+		char *buf = (char *) (uintptr_t) *(cia + 4);
+		int buflen = *(cia + 5);
+		uint32_t *outlen = (cia + 6);
+
+		WARN("p2p %x -> buf at %x len %x", p, buf, buflen);
+
+		if (buflen == 0) {
+			*outlen = 120;
+			frame->r3 = 0;
+		} else {
+			node = NODE_DEMUNGE(p);
+			if (node < 0) {
+				frame->r3 = -1;
+			} else {
+				if (fdt_get_path(prep_dtb, node, buf, buflen) == 0) {
+					WARN("get path got %s", buf);
+					frame->r3 = 0;
+					*outlen = buflen;
+				} else {
+					frame->r3 = -1;
+				}
 			}
 		}
 	} else {
