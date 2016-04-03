@@ -27,6 +27,8 @@
 #include <libfdt.h>
 #include <time.h>
 
+#include <setupldr.h>
+
 #define NODE_MUNGE(x) (x + 0x10000000)
 #define NODE_DEMUNGE(x) (x - 0x10000000)
 
@@ -34,6 +36,8 @@
 /* #undef LOG */
 /* #define LOG(x, ...) */
 /* #define WARN(x, ...) */
+
+static int setupldr_offset = 0;
 
 int
 rom_stdin(char *buf, uint32_t len)
@@ -214,11 +218,22 @@ rom_call(eframe_t *frame)
 		rom_stdout(data, len);
 		frame->r3 = 0;
 	} else if (!strcmp("read", (char *) (uintptr_t) *cia)) {
+		uint32_t ih = *(cia + 3);
 		char *data = (char *) (uintptr_t) *(cia + 4);
 		uint32_t len = *(cia + 5);
 		uint32_t *outlen = (cia + 6);
 
-		*outlen = rom_stdin(data, len);
+		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
+			WARN("read %x bytes from setupldr", len);
+			if (setupldr_offset + len <= SETUPLDR_len) {
+				memcpy(data, SETUPLDR + setupldr_offset,
+				       len);
+				setupldr_offset += len;
+				*outlen = len;
+			}
+		} else {
+			*outlen = rom_stdin(data, len);
+		}
 		frame->r3 = 0;
 	} else if (!strcmp("getproplen", (char *) (uintptr_t) *cia)) {
 		const void *data;
@@ -341,6 +356,19 @@ rom_call(eframe_t *frame)
 
 		*(cia + 6) = rom_claim(*(cia + 3), *(cia + 4), *(cia + 5));
 		frame->r3 = 0;
+	} else if (!strcmp("instance-to-package", (char *) (uintptr_t) *cia)) {
+		int node;
+		int ih = *(cia + 3);
+		uint32_t *ph = (cia + 4);
+
+		node = fdt_node_offset_by_phandle(prep_dtb,
+						  ih);
+		if (node < 0) {
+			frame->r3 = -1;
+		} else {
+			*ph = NODE_MUNGE(node);
+			frame->r3 = 0;
+		}
 	} else if (!strcmp("instance-to-path", (char *) (uintptr_t) *cia)) {
 		int node;
 		int i = *(cia + 3);
@@ -392,6 +420,32 @@ rom_call(eframe_t *frame)
 					frame->r3 = -1;
 				}
 			}
+		}
+	} else if (!strcmp("open", (char *) (uintptr_t) *cia)) {
+		char *p = (char *) (uintptr_t) *(cia + 3);
+		uint32_t *ih = (cia + 4);
+		WARN("open %s", p);
+		*ih = (uint32_t) (uintptr_t) SETUPLDR;
+		frame->r3 = 0;
+	} else if (!strcmp("close", (char *) (uintptr_t) *cia)) {
+		uint32_t ih = *(cia + 3);
+		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
+			WARN("close setupldr");
+			frame->r3 = 0;
+		} else {
+			frame->r3 = -1;
+		}
+	} else if (!strcmp("seek", (char *) (uintptr_t) *cia)) {
+		uint32_t ih = *(cia + 3);
+		uint32_t hi = *(cia + 4);
+		uint32_t lo = *(cia + 5);
+		int offset = ((uint64_t) hi) << 32 | lo;
+		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
+			setupldr_offset = offset;
+			frame->r3 = 0;
+			WARN("setupldr seek to 0x%x", offset);
+		} else {
+			frame->r3 = -1;
 		}
 	} else {
 		ERROR("unknown %s", (char *) (uintptr_t) *cia);
