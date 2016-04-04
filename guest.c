@@ -23,6 +23,7 @@
 #include <mem.h>
 #include <mmu.h>
 #include <layout.h>
+#include <string.h>
 
 guest_t *guest;
 
@@ -34,7 +35,7 @@ guest_init(length_t ram_size)
 		return ERR_NO_MEM;
 	}
 
-	BUG_ON(ram_size < MB(128), "too little RAM");
+	BUG_ON(ram_size < MB(64), "too little RAM");
 
 	guest->msr = 0;
 	guest->ram_size = ram_size;
@@ -46,6 +47,15 @@ guest_init(length_t ram_size)
 
 	LOG("HV pointer to GRAM %p", guest->ram);
 	LOG("Guest RAM at RA 0x%lx", ptr_2_ra(guest->ram));
+
+	{
+		int m;
+		int megs = guest->ram_size  / MB(1);
+		for (m = 0; m < megs; m++) {
+			LOG("clearing mb %u", m);
+			memset(guest->ram + MB(m), 0, MB(1));
+		}
+	}
 
 	mmu_map_range(LAYOUT_VM_START,
 		      LAYOUT_VM_START + guest->ram_size,

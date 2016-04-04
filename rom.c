@@ -32,12 +32,18 @@
 #define NODE_MUNGE(x) (x + 0x10000000)
 #define NODE_DEMUNGE(x) (x - 0x10000000)
 
-/* #undef WARN */
-/* #undef LOG */
-/* #define LOG(x, ...) */
-/* #define WARN(x, ...) */
+#undef WARN
+#undef LOG
+#define LOG(x, ...)
+#define WARN(x, ...)
 
-static int setupldr_offset = 0;
+int cur_offset;
+int cur_len;
+void *cur_base = NULL;
+
+void *guest_disk;
+int guest_disk_offset;
+uint64_t guest_disk_len;
 
 int
 rom_stdin(char *buf, uint32_t len)
@@ -93,7 +99,11 @@ rom_stdout(char *s, uint32_t len)
 			con_putchar('\33');
 			con_putchar('[');
 		} else {
-			con_putchar(*s);
+			if (*s == 0xcd) {
+				con_putchar('=');
+			} else {
+				con_putchar(*s);
+			}
 		}
 		s++;
 	}
@@ -155,7 +165,6 @@ rom_call(eframe_t *frame)
 		*ms = tb_to_ms(mftb());
 		frame->r3 = 0;
 	} else if (!strcmp("peer",(char *) (uintptr_t) *cia)) {
-		ERROR("%x %x %x", *(cia + 1), *(cia + 2), *(cia + 3));
 		int node = *(cia + 3);
 		int n;
 
@@ -167,10 +176,8 @@ rom_call(eframe_t *frame)
 		}
 
 		if (n < 0) {
-			ERROR("%x has no peer", node);
 			frame->r3 = -1;
 		} else {
-			ERROR("%x has peer %x", node, n);
 			*(cia + 4) = NODE_MUNGE(n);
 			frame->r3 = 0;
 		}
@@ -184,10 +191,8 @@ rom_call(eframe_t *frame)
 
 			int n = fdt_subnode(prep_dtb, node);
 			if (n < 0) {
-				ERROR("%x has no child", node);
 				frame->r3 = -1;
 			} else {
-				ERROR("%x has child %x", node, n);
 				*(cia + 4) = NODE_MUNGE(n);
 				frame->r3 = 0;
 			}
@@ -202,15 +207,15 @@ rom_call(eframe_t *frame)
 
 			int n = fdt_parent_offset(prep_dtb, node);
 			if (n < 0) {
-				ERROR("%x has no parent", node);
 				frame->r3 = -1;
 			} else {
-				ERROR("%x has parent %x", node, n);
 				*(cia + 4) = NODE_MUNGE(n);
 				frame->r3 = 0;
 			}
 		}
-	} else if (!strcmp("exit", (char *) (uintptr_t) *cia)) {
+	} else if (!strcmp("exit", (char *) (uintptr_t) *cia) ||
+		   !strcmp("boot", (char *) (uintptr_t) *cia)) {
+		ERROR("\nVM reboot requested - hanging");
 		while(1);
 	} else if (!strcmp("write", (char *) (uintptr_t) *cia)) {
 		char *data = (char *) (uintptr_t) *(cia + 4);
@@ -223,12 +228,12 @@ rom_call(eframe_t *frame)
 		uint32_t len = *(cia + 5);
 		uint32_t *outlen = (cia + 6);
 
-		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
-			WARN("read %x bytes from setupldr", len);
-			if (setupldr_offset + len <= SETUPLDR_len) {
-				memcpy(data, SETUPLDR + setupldr_offset,
+		if (ih == 0x12345678) {
+			WARN("read %x bytes from 0x%lx (end 0x%lx)", len, cur_base + cur_offset, cur_base + cur_len);
+			if (cur_offset + len <= cur_len) {
+				memcpy(data, cur_base + cur_offset,
 				       len);
-				setupldr_offset += len;
+				cur_offset += len;
 				*outlen = len;
 			}
 		} else {
@@ -422,15 +427,34 @@ rom_call(eframe_t *frame)
 			}
 		}
 	} else if (!strcmp("open", (char *) (uintptr_t) *cia)) {
-		char *p = (char *) (uintptr_t) *(cia + 3);
 		uint32_t *ih = (cia + 4);
-		WARN("open %s", p);
-		*ih = (uint32_t) (uintptr_t) SETUPLDR;
+		char *path = (char *) (uintptr_t) *(cia + 3);
+		WARN("open %s", path);
+
+		*ih = 0x12345678;
 		frame->r3 = 0;
+
+		BUG_ON(cur_base != NULL, "only 1 open supported at a time");
+		if (!strcmp(path, "/fake-storage/disk:1,osloader.exe")) {
+			cur_offset = 0;
+			cur_base = SETUPLDR;
+			cur_len = SETUPLDR_len;
+		} else if (!strcmp(path, "/fake-storage/disk:1")) {
+			cur_offset = 0;
+			cur_base = guest_disk;
+			cur_len = guest_disk_len;
+		} else {
+			ERROR("unknown open path");
+			frame->r3 = -1;
+			*ih = 0;
+		}
 	} else if (!strcmp("close", (char *) (uintptr_t) *cia)) {
 		uint32_t ih = *(cia + 3);
-		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
-			WARN("close setupldr");
+
+		if (ih == 0x12345678) {
+			cur_offset = 0;
+			cur_base = NULL;
+			cur_len = 0;
 			frame->r3 = 0;
 		} else {
 			frame->r3 = -1;
@@ -440,10 +464,10 @@ rom_call(eframe_t *frame)
 		uint32_t hi = *(cia + 4);
 		uint32_t lo = *(cia + 5);
 		int offset = ((uint64_t) hi) << 32 | lo;
-		if (ih == (uint32_t) (uintptr_t) SETUPLDR) {
-			setupldr_offset = offset;
+		if (ih == 0x12345678) {
+			WARN("seek to 0x%lx", offset);
+			cur_offset = offset;
 			frame->r3 = 0;
-			WARN("setupldr seek to 0x%x", offset);
 		} else {
 			frame->r3 = -1;
 		}

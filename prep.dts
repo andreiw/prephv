@@ -27,7 +27,15 @@
 
 	mem: memory {
 		device_type = "memory";
-		reg = <0 0x8000000>;
+		/*
+		 * hack: <0x500000 0x100000> used for veneer
+		 *
+		 * setupldr gets loaded at 0x600000, but veneer
+		 * refuses to create a MemoryLoadedProgram descriptor
+		 * unless it's listed as a separate range.
+		 */
+		available = <0x1000 0x4ff000 0x600000 0x100000 0x700000 0x3900000>;
+		reg = <0x0 0x4000000>;
 	};
 
 	fake-storage {
@@ -127,11 +135,15 @@
 
 	options {
 		// LOADIDENTIFIER = "foo;bar;baz";
+		OSLOADOPTIONS = "";
+		OSLOADPARTITION = "multi(0)disk(0)rdisk(0)partition(1)";
+		OSLOADER = "multi(0)disk(0)rdisk(0)partition(1)\osloader.exe";
+		OSLOADFILENAME = "\\";
 	};
 
 	chosen {
-		// bootargs = "";
-		bootargs = "-vrdebug 0xffffffff";
+		// bootargs = "-vrdebug 0xffffffff";
+		bootargs = "";
 		bootpath = &bootdev;
 		stdout = <&console>;
 		stdin = <&console>;

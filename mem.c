@@ -22,7 +22,11 @@
 #include <defs.h>
 #include <linkage.h>
 #include <assert.h>
+#include <mmu.h>
 
+/*
+ * XXX: FIXME OPAL at 0x30000000.
+ */
 static uint8_t *base = (uint8_t *) &_end;
 intptr_t sbrk_size = 0;
 

@@ -492,16 +492,16 @@ toggle_timer(void)
 	on ^= true;
 }
 
+extern void *guest_disk;
+extern uint64_t guest_disk_len;
 
 static void
-run_initrd(void *fdt)
+guest_disk_initrd(void *fdt)
 {
 	int node;
 	ra_t initrd_start;
 	ra_t initrd_end;
 	const uint32_t *be32_data;
-	void (*run)(ra_t, ra_t, ra_t);
-	ra_t ra;
 
 	node = fdt_path_offset(fdt, "/chosen");
 	if (node < 0) {
@@ -531,42 +531,8 @@ run_initrd(void *fdt)
 		return;
 	}
 
-	ra = *(ra_t *) ra_2_ptr(initrd_start);
-	if (ra >= initrd_start &&
-	    ra < initrd_end) {
-		/*
-		 * Could be a pointer to code (ABIv2)
-		 * or to a function descriptor (ABIv1)
-		 */
-		ra = *(ra_t *) ra_2_ptr(ra);
-		if (ra >= initrd_start &&
-		    ra < initrd_end) {
-			/*
-			 * ABIv1 function descriptor.
-			 */
-			LOG("ABIv1");
-			run = (void *) ra;
-		} else {
-			/*
-			 * ABIv2.
-			 */
-			LOG("ABIv2");
-			run = (void *) * (ra_t *)
-				ra_2_ptr(initrd_start);
-		}
-	} else {
-		/*
-		 * Straight code?
-		 */
-		LOG("looks like straight binary");
-		run = (void *) initrd_start;
-	}
-
-	LOG("calling 0x%x", run);
-	exc_disable_ee();
-	mmu_disable();
-	run(ptr_2_ra(fdt), kpcr_get()->opal_base, kpcr_get()->opal_entry);
-	LOG("returned?");
+	guest_disk = ra_2_ptr(initrd_start);
+	guest_disk_len = initrd_end - initrd_start;
 }
 
 
@@ -644,9 +610,6 @@ menu(void *fdt)
 		case 'h':
 			exc_disable_hdec();
 			break;
-		case 'I':
-			run_initrd(fdt);
-			break;
 		}
 	} while(1);
 }
@@ -684,6 +647,8 @@ c_main(ra_t fdt_ra)
 
 	cpu_init(fdt);
 
+	guest_disk_initrd(fdt);
+
 	/*
 	 * Guest memory.
 	 */
@@ -692,7 +657,7 @@ c_main(ra_t fdt_ra)
 		eframe_t uframe;
 		uint32_t hvcall = 0x44000022; /* sc 1 */
 
-		err = guest_init(MB(128));
+		err = guest_init(MB(64));
 		BUG_ON(err != ERR_NONE, "guest init failed");
 
 		memcpy((void *) (LAYOUT_VM_START + 0x00050000),
