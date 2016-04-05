@@ -168,16 +168,9 @@ void
 time_delay(uint64_t delay)
 {
 	uint64_t now = mftb();
-	LOG("Delaying for %u.%us",
-	       delay / kpcr_get()->tb_freq,
-	       delay % kpcr_get()->tb_freq);
 	while ((mftb() - now) < delay) {
 		cpu_relax();
-		LOG("Now = %u.%u s",
-		       (mftb() - now) / kpcr_get()->tb_freq,
-		       (mftb() - now) % kpcr_get()->tb_freq);
 	}
-	LOG("Done!");
 }
 
 

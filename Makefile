@@ -2,7 +2,10 @@ ENV_FILE=build_env
 -include $(ENV_FILE)
 
 OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o guest.o \
-      exc.o time.o mmu.o mem.o opal.o cache.o rom.o lib/ctype.o lib/vsprintf.o log.o lib/malloc.o
+      exc.o time.o mmu.o mem.o opal.o cache.o rom.o lib/ctype.o lib/vsprintf.o log.o lib/malloc.o \
+      fat/fat_cache.o    fat/fat_format.o  fat/fat_string.o  fat/fat_write.o \
+      fat/fat_access.o  fat/fat_filelib.o  fat/fat_misc.o    fat/fat_table.o
+
 NAME = prephv
 
 ifeq ($(CONFIG_MAMBO), 1)
@@ -18,7 +21,7 @@ ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 \
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin \
              -fno-stack-protector -I./ -Wall -Werror
 
-CC_FLAGS = -I ./include
+CC_FLAGS = -I ./include -I ./include/fat
 
 BUILD_ENV = "CROSS=$(CROSS)|ARCH_FLAGS=$(ARCH_FLAGS)|CC_FLAGS=$(CC_FLAGS)|BUILD_FLAGS=$(BUILD_FLAGS)|OBJ=$(OBJ)"
 ifneq ($(BUILD_ENV),$(OLD_BUILD_ENV))
@@ -85,7 +88,7 @@ $(NAME): asm-offset.h prep_dtb.h $(OBJ)
 	$(CC) $(CC_FLAGS) $(ARCH_FLAGS) $(BUILD_FLAGS) -Wl,--build-id=none -Wl,--EL -T ld.script -ffreestanding -nostdlib -Ttext=0x8000000020010000 -lgcc -o $@ $^
 
 clean:
-	$(RM) $(NAME) lib/*.o lib/*.d lib/*.o.s lib/*~ *.o *.o.s *.d *~ asm-offset.h asm-offset.s
+	$(RM) $(NAME) include/*~ include/fat/*~ fat/*.o fat/*.d fat/*.o.s fat/*~ lib/*.o lib/*.d lib/*.o.s lib/*~ *.o *.o.s *.d *~ asm-offset.h asm-offset.s prep.dtb prep_dtb.h
 cleaner: clean
 	git submodule deinit -f skiboot
 .PHONY: clean cleaner

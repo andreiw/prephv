@@ -23,6 +23,7 @@
 
 #include <types.h>
 
+void mem_free(void *);
 void *mem_malloc(size_t size);
 void *mem_memalign(size_t align, size_t size);
 

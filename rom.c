@@ -26,8 +26,10 @@
 #include <prep_dtb.h>
 #include <libfdt.h>
 #include <time.h>
+#include <layout.h>
+#include <mem.h>
 
-#include <setupldr.h>
+#include <fat_filelib.h>
 
 #define NODE_MUNGE(x) (x + 0x10000000)
 #define NODE_DEMUNGE(x) (x - 0x10000000)
@@ -37,10 +39,7 @@
 #define LOG(x, ...)
 #define WARN(x, ...)
 
-int cur_offset;
-int cur_len;
-void *cur_base = NULL;
-
+FL_FILE *cur_file = NULL;
 void *guest_disk;
 int guest_disk_offset;
 uint64_t guest_disk_len;
@@ -228,12 +227,14 @@ rom_call(eframe_t *frame)
 		uint32_t len = *(cia + 5);
 		uint32_t *outlen = (cia + 6);
 
-		if (ih == 0x12345678) {
-			WARN("read %x bytes from 0x%lx (end 0x%lx)", len, cur_base + cur_offset, cur_base + cur_len);
-			if (cur_offset + len <= cur_len) {
-				memcpy(data, cur_base + cur_offset,
+		if (ih == 0xffffffff) {
+			BUG_ON(cur_file == NULL, "file not open");
+			*outlen = fl_fread(data, len, 1, cur_file);
+		} else if (ih == 0xdddddddd) {
+			if (guest_disk_offset + len <= guest_disk_len) {
+				memcpy(data, guest_disk + guest_disk_offset,
 				       len);
-				cur_offset += len;
+				guest_disk_offset += len;
 				*outlen = len;
 			}
 		} else {
@@ -431,18 +432,25 @@ rom_call(eframe_t *frame)
 		char *path = (char *) (uintptr_t) *(cia + 3);
 		WARN("open %s", path);
 
-		*ih = 0x12345678;
 		frame->r3 = 0;
+		if (strstr(path, "/fake-storage/disk:1,") != NULL) {
+			char *fpath = path + strlen("/fake-storage/disk:1");
+			char *npath = mem_malloc(strlen(fpath) + 1);
+			strcpy(npath, fpath);
+			*npath = '/';
 
-		BUG_ON(cur_base != NULL, "only 1 open supported at a time");
-		if (!strcmp(path, "/fake-storage/disk:1,osloader.exe")) {
-			cur_offset = 0;
-			cur_base = SETUPLDR;
-			cur_len = SETUPLDR_len;
+			BUG_ON(cur_file != NULL, "1 open allowed at a time");
+			cur_file = fl_fopen(npath, "r");
+			mem_free(npath);
+
+			if (cur_file == NULL) {
+				frame->r3 = -1;
+			} else {
+				*ih = 0xffffffff;
+			}
 		} else if (!strcmp(path, "/fake-storage/disk:1")) {
-			cur_offset = 0;
-			cur_base = guest_disk;
-			cur_len = guest_disk_len;
+			*ih = 0xdddddddd;
+			guest_disk_offset = 0;
 		} else {
 			ERROR("unknown open path");
 			frame->r3 = -1;
@@ -451,10 +459,12 @@ rom_call(eframe_t *frame)
 	} else if (!strcmp("close", (char *) (uintptr_t) *cia)) {
 		uint32_t ih = *(cia + 3);
 
-		if (ih == 0x12345678) {
-			cur_offset = 0;
-			cur_base = NULL;
-			cur_len = 0;
+		if (ih == 0xffffffff) {
+			BUG_ON(cur_file == NULL, "file not open");
+			fl_fclose(cur_file);
+			cur_file = NULL;
+		} else if (ih == 0xdddddddd) {
+			guest_disk_offset = 0;
 			frame->r3 = 0;
 		} else {
 			frame->r3 = -1;
@@ -463,10 +473,17 @@ rom_call(eframe_t *frame)
 		uint32_t ih = *(cia + 3);
 		uint32_t hi = *(cia + 4);
 		uint32_t lo = *(cia + 5);
-		int offset = ((uint64_t) hi) << 32 | lo;
-		if (ih == 0x12345678) {
+		length_t offset = ((uint64_t) hi) << 32 | lo;
+		if (ih == 0xffffffff) {
+			BUG_ON(cur_file == NULL, "file not open");
+			if (fl_fseek(cur_file, offset, SEEK_SET) != 0) {
+				frame->r3 = -1;
+			} else {
+				frame->r3 = 0;
+			}
+		} else if (ih == 0xdddddddd) {
 			WARN("seek to 0x%lx", offset);
-			cur_offset = offset;
+			guest_disk_offset = offset;
 			frame->r3 = 0;
 		} else {
 			frame->r3 = -1;
@@ -479,3 +496,120 @@ rom_call(eframe_t *frame)
 	return ERR_NONE;
 }
 
+
+static err_t
+rom_disk_init(void *fdt)
+{
+	int node;
+	ra_t initrd_start = 0;
+	ra_t initrd_end = 0;
+	const uint32_t *be32_data;
+
+	node = fdt_path_offset(fdt, "/chosen");
+	if (node < 0) {
+		ERROR("/chosen not found?");
+		return ERR_NOT_FOUND;
+	}
+
+	be32_data = fdt_getprop(fdt, node,
+				"linux,initrd-start",
+				NULL);
+	if (be32_data != NULL) {
+		initrd_start = be32_to_cpu(*be32_data);
+	}
+
+	be32_data = fdt_getprop(fdt, node,
+				"linux,initrd-end",
+				NULL);
+	if (be32_data != NULL) {
+		initrd_end = be32_to_cpu(*be32_data);
+	}
+
+	if ((initrd_end - initrd_start) == 0) {
+		ERROR("missing VM disk (no initrd)");
+		return ERR_NOT_FOUND;
+	}
+
+	LOG("VM disk @ 0x%lx-0x%lx",
+	    initrd_start,
+	    initrd_end);
+
+	guest_disk = ra_2_ptr(initrd_start);
+	guest_disk_len = initrd_end - initrd_start;
+
+	return ERR_NONE;
+}
+
+
+static int
+guest_disk_read(uint32_t sector,
+		uint8_t *buffer,
+		uint32_t sector_count)
+{
+	uint32 i;
+
+	for (i = 0;i < sector_count; i++) {
+		memcpy(buffer, guest_disk + sector * FAT_SECTOR_SIZE,
+		       sector_count * FAT_SECTOR_SIZE);
+		sector ++;
+		buffer += FAT_SECTOR_SIZE;
+	}
+
+	return 1;
+}
+
+
+err_t
+rom_init(void *fdt)
+{
+	err_t err;
+	FL_FILE *fl;
+	length_t veneer_len;
+	uint32_t hvcall = 0x44000022; /* sc 1 */
+
+	err = rom_disk_init(fdt);
+	if (err != ERR_NONE) {
+		return err;
+	}
+
+	fl_init();
+	if (fl_attach_media(guest_disk_read, NULL) != FAT_INIT_OK) {
+		return ERR_UNSUPPORTED;
+	}
+
+	fl = fl_fopen("/veneer.exe", "r");
+	if (fl == NULL) {
+		ERROR("No veneer.exe on VM disk");
+		return ERR_NOT_FOUND;
+	}
+
+	if (fl_fseek(fl, 0, SEEK_END) != 0) {
+		ERROR("Seek (end) failure");
+		return ERR_UNSUPPORTED;
+	}
+
+	veneer_len = fl_ftell(fl);
+	LOG("ARC veneer is 0x%lx bytes", veneer_len);
+
+	if (fl_fseek(fl, 0x200, SEEK_SET) != 0) {
+		ERROR("Seek (0x200) failure");
+		return ERR_UNSUPPORTED;
+	}
+	veneer_len -= 0x200;
+
+	if (fl_fread((void *) (LAYOUT_VM_START + 0x00050000),
+		     veneer_len, 1, fl) != veneer_len) {
+		ERROR("Read failure");
+		return ERR_UNSUPPORTED;
+	}
+
+	fl_fclose(fl);
+	lwsync();
+	flush_cache(LAYOUT_VM_START + 0x00050000, veneer_len);
+
+	memcpy((void *) (LAYOUT_VM_START + 0x4), &hvcall, 4);
+	lwsync();
+	flush_cache(LAYOUT_VM_START + 0x4, 4);
+
+	return ERR_NONE;
+}

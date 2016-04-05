@@ -134,7 +134,7 @@
 	};
 
 	options {
-		// LOADIDENTIFIER = "foo;bar;baz";
+		LOADIDENTIFIER = "Boot PowerPC NT 4.0 on Power8 PReP HV";
 		OSLOADOPTIONS = "";
 		OSLOADPARTITION = "multi(0)disk(0)rdisk(0)partition(1)";
 		OSLOADER = "multi(0)disk(0)rdisk(0)partition(1)\osloader.exe";

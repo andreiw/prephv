@@ -19,6 +19,8 @@
 #ifndef STRING_H
 #define STRING_H
 
+#include <types.h>
+
 int strnicmp(const char *s1, const char *s2, length_t len);
 int strcasecmp(const char *s1, const char *s2);
 int strncasecmp(const char *s1, const char *s2, length_t n);

@@ -37,7 +37,6 @@
 #include <log.h>
 #include <guest.h>
 #include <layout.h>
-#include "veneer.h"
 
 #define HELLO_MAMBO "Hello Mambo!\n"
 #define HELLO_OPAL "Hello OPAL!\n"
@@ -492,49 +491,6 @@ toggle_timer(void)
 	on ^= true;
 }
 
-extern void *guest_disk;
-extern uint64_t guest_disk_len;
-
-static void
-guest_disk_initrd(void *fdt)
-{
-	int node;
-	ra_t initrd_start;
-	ra_t initrd_end;
-	const uint32_t *be32_data;
-
-	node = fdt_path_offset(fdt, "/chosen");
-	if (node < 0) {
-		LOG("/chosen not found?");
-		return;
-	}
-
-	be32_data = fdt_getprop(fdt, node,
-				"linux,initrd-start",
-				NULL);
-	if (be32_data != NULL) {
-		initrd_start = be32_to_cpu(*be32_data);
-	}
-
-	be32_data = fdt_getprop(fdt, node,
-				"linux,initrd-end",
-				NULL);
-	if (be32_data != NULL) {
-		initrd_end = be32_to_cpu(*be32_data);
-	}
-
-	LOG("initrd is 0x%x-0x%x",
-	       initrd_start,
-	       initrd_end);
-	if ((initrd_end - initrd_start) == 0) {
-		LOG("nothing to do, empty initrd");
-		return;
-	}
-
-	guest_disk = ra_2_ptr(initrd_start);
-	guest_disk_len = initrd_end - initrd_start;
-}
-
 
 void
 menu(void *fdt)
@@ -647,29 +603,18 @@ c_main(ra_t fdt_ra)
 
 	cpu_init(fdt);
 
-	guest_disk_initrd(fdt);
-
 	/*
 	 * Guest memory.
 	 */
 	{
 		err_t err;
 		eframe_t uframe;
-		uint32_t hvcall = 0x44000022; /* sc 1 */
 
 		err = guest_init(MB(64));
 		BUG_ON(err != ERR_NONE, "guest init failed");
 
-		memcpy((void *) (LAYOUT_VM_START + 0x00050000),
-		       veneer_exe + 0x200,
-		       veneer_exe_len - 0x200);
-		lwsync();
-		flush_cache(LAYOUT_VM_START + 0x00050000,
-			    veneer_exe_len - 0x200);
-
-		memcpy((void *) (LAYOUT_VM_START + 0x4), &hvcall, 4);
-		lwsync();
-		flush_cache(LAYOUT_VM_START + 0x4, 4);
+		err = rom_init(fdt);
+		BUG_ON(err != ERR_NONE, "rom init failed");
 
 		memset(&uframe, 0, sizeof(uframe));
 		uframe.r1 = LAYOUT_VM_START + 0x00050000 - STACKFRAMESIZE;

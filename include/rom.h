@@ -31,6 +31,7 @@ typedef struct rom_t
 	gra_t claim_arena_end;
 } rom_t;
 
+err_t rom_init(void *fdt);
 err_t rom_call(eframe_t *frame);
 
 #endif /* ROM_H */
