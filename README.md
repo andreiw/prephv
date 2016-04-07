@@ -20,7 +20,7 @@ pre-ACPI PC with a PowerPC CPU. Some PReP machines ran
 Windows NT 4.0. Most ran AIX, an obscure Solaris port, or
 gave Linux hackers many fun restless nights.
 
-Relieve '96... I spent that July basking on the beaches of
+Relive '96... I spent that July basking on the beaches of
 Cagliari. Somewhere in a dusty office in Seattle people
 were dealing with stuff like this:
 
