@@ -112,9 +112,4 @@ _GLOBAL(_start)
 	 * like, so we keep it.
 	 */
 	ori	r0, r0, 0
-#ifdef CONFIG_MAMBO
-	/*
-	 * Stop sim.
-	 */
-	attn
-#endif /* CONFIG_MAMBO */
+	never:	b	.

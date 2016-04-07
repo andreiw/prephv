@@ -1,6 +1,8 @@
 ENV_FILE=build_env
 -include $(ENV_FILE)
 
+SHELL := /bin/bash
+
 OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o guest.o \
       exc.o time.o mmu.o mem.o opal.o cache.o rom.o lib/ctype.o lib/vsprintf.o log.o lib/malloc.o \
       fat/fat_cache.o    fat/fat_format.o  fat/fat_string.o  fat/fat_write.o \
@@ -8,13 +10,10 @@ OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-ve
 
 NAME = prephv
 
-ifeq ($(CONFIG_MAMBO), 1)
-BUILD_FLAGS = -DCONFIG_MAMBO
-OBJ += mambo.o
-endif
-
 CROSS ?= ppc64le-linux
 CC = $(CROSS)-gcc
+PPC64QEMU ?= qemu-system-ppc64
+FAT_IMAGE ?= ../image.fat # relative to skiboot
 
 ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 \
              -mlittle-endian -mno-strict-align -mno-multiple \
@@ -42,6 +41,8 @@ clean_env: log_clean_env clean
 	@echo OLD_BUILD_ENV=\"$(BUILD_ENV)\" > $(ENV_FILE)
 
 test: $(NAME) skiboot/skiboot.lid
+	$(shell pushd skiboot && $(PPC64QEMU) -m 4G -M powernv -nographic -kernel ../prephv  -initrd $(FAT_IMAGE) 1>&2 || 0)
+	$(shell reset)
 
 skiboot/skiboot.lid:
 	git submodule update --init skiboot

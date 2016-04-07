@@ -62,8 +62,7 @@ exc_handler(eframe_t *frame)
 
 	/*
 	 * Handle instruction storage faults within the HV address
-	 * region (which is direct-mapped to 0). When the MMU is off,
-	 * the translation happens automatically.
+	 * region (which is direct-mapped to 0).
 	 */
 	if (frame->vec == EXC_ISI) {
 		if (frame->hsrr0 >= HV_ASPACE &&
@@ -78,8 +77,7 @@ exc_handler(eframe_t *frame)
 
 	/*
 	 * Handle data storage faults within the HV address
-	 * region (which is direct-mapped to 0). When the MMU is off,
-	 * the translation happens automatically.
+	 * region (which is direct-mapped to 0).
 	 */
 	if (frame->vec == EXC_DSI) {
 		if (get_DAR() >= HV_ASPACE &&
@@ -94,13 +92,6 @@ exc_handler(eframe_t *frame)
 
 	if (frame->vec == EXC_DEC) {
 		time_handle();
-		exc_rfi(frame);
-	}
-
-	if (frame->vec == EXC_HDEC) {
-		set_HDEC(DEC_DISABLE);
-		LOG("hypervisor decrementer, exception handler with MMU %s!",
-		       (frame->hsrr1 & (MSR_IR | MSR_DR)) ? "on" : "off");
 		exc_rfi(frame);
 	}
 
@@ -171,20 +162,6 @@ void
 exc_enable_ee(void)
 {
 	mtmsrd(mfmsr() | MSR_EE, 1);
-}
-
-
-void
-exc_enable_hdec(void)
-{
-	set_LPCR(get_LPCR() | LPCR_HDICE);
-}
-
-
-void
-exc_disable_hdec(void)
-{
-	set_LPCR(get_LPCR() & ~LPCR_HDICE);
 }
 
 
