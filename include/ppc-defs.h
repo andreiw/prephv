@@ -123,6 +123,7 @@
 #define SPRN_SDR1       0x019           /* HTAB base. */
 #define SPRN_DAR        0x013           /* Data Adress Register. */
 #define SPRN_DSISR      0x012           /* Data Storage Interrupt Status */
+#define SPRN_PVR        0x11f           /* Processor Version Register */
 
 #define DSISR_NOT_MAPPED_LG    (63 - 33)
 #define DSISR_NOT_MAPPED       __MASK(DSISR_NOT_MAPPED_LG)

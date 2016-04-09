@@ -30,7 +30,10 @@ extern struct guest_t *guest;
 
 typedef struct guest_t
 {
+  uint32_t pvr;
   uint32_t msr;
+  uint32_t srr0;
+  uint32_t srr1;
   length_t ram_size;
   void     *ram;
   rom_t    rom;
@@ -47,5 +50,6 @@ guest_is_mmu_off(void)
 }
 
 err_t guest_init(length_t ram_size);
+err_t guest_exc_try(eframe_t *frame);
 
 #endif /* GUEST_H */

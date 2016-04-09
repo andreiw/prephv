@@ -28,7 +28,7 @@
 #include <time.h>
 #include <exc.h>
 #include <mem.h>
-#include <rom.h>
+#include <guest.h>
 
 void
 exc_handler(eframe_t *frame)
@@ -40,24 +40,8 @@ exc_handler(eframe_t *frame)
 		goto bad;
 	}
 
-	if (frame->vec == EXC_PROG) {
-#define PPC_INST_MFSPR_PVR              0x7c1f42a6
-#define PPC_INST_MFSPR_PVR_MASK         0xfc1fffff
-		uint32_t *i = (uint32_t *) frame->hsrr0;
-		WARN("PROG from %x, insn 0x%x",  frame->hsrr0, *i);
-
-		if (frame->hsrr0 == 0x5c0b4) {
-			// HACK - bypass HalpSweepPhysicalRangeInBothCaches.
-			frame->hsrr0 = frame->lr;
-			exc_rfi(frame);
-		}
-
-		if ((*i & PPC_INST_MFSPR_PVR_MASK) == PPC_INST_MFSPR_PVR) {
-			/* 604 */
-			(&frame->r0)[(*i >> 21) & 0x1f] = 0x00040103;
-			frame->hsrr0 += 4;
-			exc_rfi(frame);
-		}
+	if (guest_exc_try(frame) == ERR_NONE) {
+		exc_rfi(frame);
 	}
 
 	/*
@@ -93,14 +77,6 @@ exc_handler(eframe_t *frame)
 	if (frame->vec == EXC_DEC) {
 		time_handle();
 		exc_rfi(frame);
-	}
-
-	if (frame->vec == EXC_SC) {
-		mtmsrd(MSR_RI, 1);
-		if (rom_call(frame) == ERR_NONE) {
-			exc_rfi(frame);
-		}
-		mtmsrd(0, 1);
 	}
 
 	if (frame->vec == EXC_ISEG ||
