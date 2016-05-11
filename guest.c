@@ -83,7 +83,8 @@ guest_exc_try(eframe_t *frame)
 
 	BUG_ON((frame->hsrr1 & MSR_PR) == 0, "32-bit non-PR");
 
-	if (frame->vec == EXC_PROG) {
+	if (frame->vec == EXC_PROG ||
+	    frame->vec == EXC_HEA) {
 #define PPC_INST_MTSPR_MASK             0xfc0007fe
 #define PPC_INST_MFSPR_MASK             0xfc0007fe
 #define PPC_INST_MTMSR_MASK             0xfc0007fe

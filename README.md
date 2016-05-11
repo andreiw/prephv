@@ -53,7 +53,10 @@ A good source of toolchains is kernel.org. For building skiboot
 Skiboot is pulled-in as a submodule. Prephv is a skiboot payload.
 So hypothetically it could run on a real Power8 box.
 
-You will need Benjamin Herrenschmidt's PowerNV QEMU tree.
+You will need Benjamin Herrenschmidt's PowerNV QEMU tree. Actually
+I suggest my fork of that tree, which might contain useful
+fixes that aren't yet present elsewhere. This is here:
+https://github.com/andreiw/ozbenh-qemu
 
 Good directions for QEMU/PowerNV:
 https://www.flamingspork.com/blog/2015/08/28/running-opal-in-qemu-the-powernv-platform/
