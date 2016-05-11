@@ -81,14 +81,14 @@ exc_handler(eframe_t *frame)
 
 	if (frame->vec == EXC_ISEG ||
 	    frame->vec == EXC_ISI) {
-		LOG("Instruction MMU fault at 0x%x",
+		LOG("Instruction MMU fault at 0x%lx",
 		       frame->hsrr0);
 		goto bad;
 	}
 
 	if (frame->vec == EXC_DSEG ||
 	    frame->vec == EXC_DSI) {
-		LOG("Data MMU fault at 0x%x (DAR 0x%x, DSISR 0x%x)",
+		LOG("Data MMU fault at 0x%lx (DAR 0x%lx, DSISR 0x%lx)",
 		       frame->hsrr0,
 		       get_DAR(),
 		       get_DSISR());
@@ -96,14 +96,14 @@ exc_handler(eframe_t *frame)
 	}
 
 bad:
-	LOG("Unrecoverable exception 0x%x from %u-bit\n"
-	    "PC  = 0x%x\n"
-	    "MSR = 0x%x",
+	LOG("Unrecoverable exception 0x%lx from %u-bit\n"
+	    "PC  = 0x%lx\n"
+	    "MSR = 0x%lx",
 	    frame->vec,
 	    (frame->hsrr1 & MSR_SF) != 0 ? 64 : 32,
 	    frame->hsrr0, frame->hsrr1);
 
-#define D(x) LOG(#x " = 0x%x", frame->x)
+#define D(x) LOG(#x " = 0x%lx", frame->x)
 	D(r0); D(r1); D(r2); D(r3); D(r4); D(r5);
 	D(r6); D(r7); D(r8); D(r9); D(r10); D(r11);
 	D(r12); D(r13); D(r14); D(r15); D(r16); D(r17);
@@ -165,8 +165,8 @@ exc_init(void)
 	 * if there's MSR.HV=0 MSR.PR=1 code does an sc...). We call
 	 * unpriviledged code with MSR.HV=1 MSR.PR=1.
 	 *
-	 * We also turn on AIL, so that when MMU is on, texceptions are taken
-	 * with MMU  at EA 0xc000000000004000 instead of with MMU off at RA 0x0.
+	 * We also turn on AIL, so that when MMU is on, exceptions are taken
+	 * with MMU at EA 0xc000000000004000 instead of with MMU off at RA 0x0.
 	 */
 	set_LPCR((get_LPCR() & ~LPCR_LPES) | LPCR_ILE | LPCR_AIL0 | LPCR_AIL1);
 
@@ -175,7 +175,7 @@ exc_init(void)
 	 */
 	kpcr_get()->unrec_sp = (uint64_t) mem_memalign(PAGE_SIZE, PAGE_SIZE) +
 		PAGE_SIZE  - sizeof(eframe_t);
-	LOG("Unrecoverable exception stack top @ 0x%x",
+	LOG("Unrecoverable exception stack top @ 0x%lx",
 	       kpcr_get()->unrec_sp);
 
 	/*

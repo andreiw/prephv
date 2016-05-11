@@ -34,6 +34,9 @@ typedef struct guest_t
   uint32_t msr;
   uint32_t srr0;
   uint32_t srr1;
+  uint32_t ibat[8];
+  uint32_t dbat[8];
+  uint32_t sr[16];
   length_t ram_size;
   void     *ram;
   rom_t    rom;

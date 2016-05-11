@@ -124,6 +124,23 @@
 #define SPRN_DAR        0x013           /* Data Adress Register. */
 #define SPRN_DSISR      0x012           /* Data Storage Interrupt Status */
 #define SPRN_PVR        0x11f           /* Processor Version Register */
+#define SPRN_IBAT0U     0x210           /* IBAT0 upper */
+#define SPRN_IBAT0L     0x211           /* IBAT0 lower */
+#define SPRN_IBAT1U     0x212           /* IBAT1 upper */
+#define SPRN_IBAT1L     0x213           /* IBAT1 lower */
+#define SPRN_IBAT2U     0x214           /* IBAT2 upper */
+#define SPRN_IBAT2L     0x215           /* IBAT2 lower */
+#define SPRN_IBAT3U     0x216           /* IBAT3 upper */
+#define SPRN_IBAT3L     0x217           /* IBAT3 lower */
+#define SPRN_DBAT0U     0x218           /* DBAT0 upper */
+#define SPRN_DBAT0L     0x219           /* DBAT0 lower */
+#define SPRN_DBAT1U     0x21A           /* DBAT1 upper */
+#define SPRN_DBAT1L     0x21B           /* DBAT1 lower */
+#define SPRN_DBAT2U     0x21C           /* DBAT2 upper */
+#define SPRN_DBAT2L     0x21D           /* DBAT2 lower */
+#define SPRN_DBAT3U     0x21E           /* DBAT3 upper */
+#define SPRN_DBAT3L     0x21F           /* DBAT3 lower */
+
 
 #define DSISR_NOT_MAPPED_LG    (63 - 33)
 #define DSISR_NOT_MAPPED       __MASK(DSISR_NOT_MAPPED_LG)
@@ -241,18 +258,25 @@
 #define TLBIEL_IS_SHIFT         (64-53)
 
 /*
- * Segmentation defines. We only care about 1T segments.
+ * Segmentation defines. The hypervisor uses 1T segments,
+ * but for the guest we use 256MB since we need to emulate
+ * 32-bit segmentation.
  */
 
-/* 1T segments */
+/* 1T segments. */
 #define SID_SHIFT_1T            40
 #define ESID_MASK_1T            0xffffff0000000000UL
+
+/* 256MB segments. */
+#define SID_SHIFT_256MB         28
+#define ESID_MASK_256MB         0xfffffffff0000000UL
 
 /* Bits in the SLB ESID word */
 #define SLB_ESID_V              (0x0000000008000000) /* valid */
 
 /* Bits in the SLB VSID word */
 #define SLB_VSID_SHIFT_1T       24
+#define SLB_VSID_SHIFT_256MB    12
 #define SLB_VSID_B_1T           (1UL << (63-1))
 #define SLB_VSID_KP             (1UL << (63-53))
 #define SLB_VSID_L              (1UL << (63-55))

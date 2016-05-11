@@ -44,10 +44,25 @@
 #define VPN_SHIFT 12
 typedef uint64_t vpn_t;
 
-#define IDENTITY_VSID 0UL
-#define HV_VSID       1UL
-#define AIL_VSID      2UL
-#define VRMA_VSID     0x1FFFFFFUL
+#define HV_VSID       0UL
+#define AIL_VSID      1UL
+#define IDENTITY_VSID 2UL
+
+static inline seg_size_t
+ea_2_seg_size(ea_t ea)
+{
+	if (ea >= AIL_ASPACE_START &&
+	    ea <= AIL_ASPACE_END) {
+		return SEG_256M;
+	}
+
+	if ((ea & HV_ASPACE) != 0) {
+		return SEG_1T;
+	}
+
+	return SEG_1T;
+}
+
 
 static inline page_size_t
 ea_2_base_size(ea_t ea)
@@ -71,44 +86,40 @@ ea_2_base_size(ea_t ea)
 	}
 }
 
-static inline vpn_t
-vrma_2_vpn(ra_t ra)
-{
-	return (ra >> VPN_SHIFT) |
-		(VRMA_VSID << (SID_SHIFT_1T - VPN_SHIFT));
-}
 
 static inline vpn_t
 ea_2_vpn(ea_t ea)
 {
+	int sid_shift;
+
+	if (ea_2_seg_size(ea) == SEG_1T) {
+		sid_shift = SID_SHIFT_1T;
+	} else {
+		sid_shift = SID_SHIFT_256MB;
+	}
+
 	/*
 	 * AIL space.
-	 *
-	 * ESID(c00000) => VSID(2).
 	 */
 	if (ea >= AIL_ASPACE_START &&
 	    ea <= AIL_ASPACE_END) {
 		return ((ea - AIL_ASPACE_START) >> VPN_SHIFT) |
-			(AIL_VSID << (SID_SHIFT_1T - VPN_SHIFT));
+			(AIL_VSID << (sid_shift - VPN_SHIFT));
 	}
 
 	/*
 	 * HV space.
-	 *
-	 * ESID(800000) => VSID(1).
 	 */
 	if ((ea & HV_ASPACE) != 0) {
 		return ((ea & ~HV_ASPACE) >> VPN_SHIFT) |
-		       (HV_VSID << (SID_SHIFT_1T - VPN_SHIFT));
+		       (HV_VSID << (sid_shift - VPN_SHIFT));
 	}
 
 	/*
 	 * 1:1 mappings.
-	 *
-	 * ESID(000000) => VSID(0).
 	 */
 	return (ea >> VPN_SHIFT) |
-		       (IDENTITY_VSID << (SID_SHIFT_1T - VPN_SHIFT));
+		       (IDENTITY_VSID << (sid_shift - VPN_SHIFT));
 }
 
 typedef struct {
@@ -123,27 +134,35 @@ static uint64_t htab_hash_mask;
 
 
 static uint64_t
-slb_make_esid(ea_t ea, uint64_t slot)
+slb_make_esid(ea_t ea,
+              seg_size_t seg_size,
+              uint64_t slot)
 {
 	/*
 	 * 1TB.
 	 */
-	return (ea & ESID_MASK_1T) | SLB_ESID_V | slot;
+	if (seg_size == SEG_1T) {
+		return (ea & ESID_MASK_1T) | SLB_ESID_V | slot;
+	} else {
+		return (ea & ESID_MASK_256MB) | SLB_ESID_V | slot;
+	}
 }
 
 
 static uint64_t
 slb_make_vsid(uint64_t vsid,
+              seg_size_t seg_size,
 	      page_size_t base)
 {
 	uint64_t lp;
+	uint64_t v = SLB_VSID_KP; /* Supervisor */
 
-	/*
-	 * Supervisor, 1TB.
-	 */
-	uint64_t v = (vsid << SLB_VSID_SHIFT_1T) |
-		SLB_VSID_B_1T |
-		SLB_VSID_KP;
+	if (seg_size == SEG_1T) {
+		v |= (vsid << SLB_VSID_SHIFT_1T) |
+			SLB_VSID_B_1T;
+	} else {
+		v |= (vsid << SLB_VSID_SHIFT_256MB);
+	}
 
 	if (base == PAGE_16M) {
 		v |= SLB_VSID_L;
@@ -174,7 +193,7 @@ slb_dump(void)
 		}
 
 		asm volatile("slbmfev  %0,%1" : "=r" (vsid) : "r" (entry));
-		LOG("%d: E 0x%x V 0x%x", entry, esid, vsid);
+		LOG("%d: E 0x%lx V 0x%lx", entry, esid, vsid);
 	}
 }
 
@@ -185,29 +204,29 @@ slb_init(void)
 	uint64_t esid;
 	uint64_t vsid;
 
-	set_LPCR((get_LPCR() & ~(LPCR_VRMSL | LPCR_VRMSLP0 | LPCR_VRMSLP1)) |
-		 LPCR_VPMD | LPCR_VPME);
 	asm volatile("slbia");
 	isync();
 
 	/*
 	 *
-	 *  HV: 1TB segment ESID(800000) => VSID(1), 16M pages, slot 0.
-	 * 1-1: 1TB segment ESID(000000) => VSID(0),  4K pages, slot 1.
-	 * AIL: 1TB segment ESID(c00000) => VSID(2),  4K pages, slot 2.
+	 *  HV: 1TB segment ESID(800000) => VSID(0), 16M pages, slot 0.
+	 * AIL: 256M segment ESID(c00000000) => VSID(1),  4K pages, slot 1.
+	 * 1-1: 1TB segment ESID(000000) => VSID(2),  4K pages, slot 2.
 	 *
 	 * Slot 0  is special (not invalidated with slbia).
 	 */
-	esid = slb_make_esid(HV_ASPACE, 0);
-	vsid = slb_make_vsid(HV_VSID, PAGE_16M);
+	esid = slb_make_esid(HV_ASPACE, SEG_1T, 0);
+	vsid = slb_make_vsid(HV_VSID, SEG_1T, PAGE_16M);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
-	esid = slb_make_esid(0, 1);
-	vsid = slb_make_vsid(IDENTITY_VSID, PAGE_4K);
+
+	esid = slb_make_esid(AIL_ASPACE_START, SEG_256M, 1);
+	vsid = slb_make_vsid(AIL_VSID, SEG_256M, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
-	esid = slb_make_esid(AIL_ASPACE_START, 2);
-	vsid = slb_make_vsid(AIL_VSID, PAGE_4K);
+
+	esid = slb_make_esid(0, SEG_1T, 2);
+	vsid = slb_make_vsid(IDENTITY_VSID, SEG_1T, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
 	isync();
@@ -234,13 +253,21 @@ pteg_count(uint64_t ram_size)
 
 static inline uint64_t
 vpn_hash(vpn_t vpn,
+	 seg_size_t seg_size,
 	 page_size_t base)
 {
 	int shift;
+	int seg_shift;
 	vpn_t mask, hash, vsid;
 
 	BUG_ON(base != PAGE_4K && base != PAGE_16M,
 	       "page_size_t %u not supported", base);
+
+	if (seg_size == SEG_1T) {
+		seg_shift = SID_SHIFT_1T;
+	} else {
+		seg_shift = SID_SHIFT_256MB;
+	}
 
 	if (base == PAGE_4K) {
 		shift = PAGE_SHIFT;
@@ -248,8 +275,8 @@ vpn_hash(vpn_t vpn,
 		shift = PAGE_SHIFT_16M;
 	}
 
-	mask = (1ul << (SID_SHIFT_1T - VPN_SHIFT)) - 1;
-	vsid = vpn >> (SID_SHIFT_1T - VPN_SHIFT);
+	mask = (1ul << (seg_shift - VPN_SHIFT)) - 1;
+	vsid = vpn >> (seg_shift - VPN_SHIFT);
 	hash = vsid ^ (vsid << 25) ^
 		((vpn & mask) >> (shift - VPN_SHIFT));
 
@@ -348,6 +375,7 @@ tlbia(void)
 
 static inline void
 tlbie(vpn_t vpn,
+      seg_size_t seg_size,
       page_size_t base,
       page_size_t actual)
 {
@@ -369,7 +397,9 @@ tlbie(vpn_t vpn,
 	 * 5.9.3.3 PowerISA v2.07 p928.
 	 */
 	va &= ~((1ul << shift) - 1);
-	va |= TLBIE_RB_1TB;
+	if (seg_size == SEG_1T) {
+		va |= TLBIE_RB_1TB;
+	}
 
 	if (actual == PAGE_16M) {
 		/*
@@ -399,6 +429,7 @@ tlbie(vpn_t vpn,
 static
 int
 mmu_unmap_vpn(vpn_t vpn,
+	      seg_size_t seg_size,
 	      page_size_t base,
 	      page_size_t actual)
 {
@@ -426,7 +457,7 @@ mmu_unmap_vpn(vpn_t vpn,
 
 	while (actual_size != 0) {
 		int i;
-		uint64_t hash = vpn_hash(vpn, base);
+		uint64_t hash = vpn_hash(vpn, seg_size, base);
 		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
 		pte_t *pte = ((pte_t *) htab) + pteg;
 
@@ -464,7 +495,7 @@ mmu_unmap_vpn(vpn_t vpn,
 
 		pte->v = be64_to_cpu(0);
 		ptesync();
-		tlbie(vpn, base, actual);
+		tlbie(vpn, seg_size, base, actual);
 
 		/*
 		 * Update the next PTE that is part of the large PTE group.
@@ -496,7 +527,10 @@ mmu_unmap(ea_t ea,
 	BUG_ON((ea & ~(actual_size - 1)) != ea,
 	       "ea 0x%x not aligned to 0x%x", ea, actual_size);
 
-	ret = mmu_unmap_vpn(ea_2_vpn(ea), ea_2_base_size(ea), actual);
+	ret = mmu_unmap_vpn(ea_2_vpn(ea),
+			    ea_2_seg_size(ea),
+			    ea_2_base_size(ea),
+			    actual);
 	BUG_ON(ret != 0, "EA 0x%x not mapped", ea);
 }
 
@@ -505,6 +539,7 @@ static int
 mmu_map_vpn(vpn_t vpn,
 	    ra_t ra,
 	    prot_t pp,
+	    seg_size_t seg_size,
 	    page_size_t base,
 	    page_size_t actual)
 {
@@ -512,8 +547,12 @@ mmu_map_vpn(vpn_t vpn,
 	length_t actual_size;
 
 	uint64_t rflags = pp | PTE_R_M;
-	uint64_t vflags = PTE_V_1TB_SEG | PTE_R_M | PTE_V_VALID |
+	uint64_t vflags = PTE_R_M | PTE_V_VALID |
 		((actual != PAGE_4K) ? PTE_V_LARGE : 0);
+
+	if (seg_size == SEG_1T) {
+		vflags |= PTE_V_1TB_SEG;
+	}
 
 	BUG_ON(base != PAGE_4K && base != PAGE_16M,
 	       "page_size_t %u not supported", base);
@@ -545,7 +584,7 @@ mmu_map_vpn(vpn_t vpn,
 		int i;
 		uint64_t v;
 		uint64_t r;
-		uint64_t hash = vpn_hash(vpn, base);
+		uint64_t hash = vpn_hash(vpn, seg_size, base);
 		uint64_t pteg = ((hash & htab_hash_mask) * PTES_PER_GROUP);
 		pte_t *pte = ((pte_t *) htab) + pteg;
 
@@ -634,7 +673,10 @@ mmu_map(ea_t ea,
 	BUG_ON((ea & ~(actual_size - 1)) != ea,
 	       "EA 0x%x not aligned to 0x%x", ea, actual_size);
 
-	ret = mmu_map_vpn(ea_2_vpn(ea), ra, pp, ea_2_base_size(ea), actual);
+	ret = mmu_map_vpn(ea_2_vpn(ea), ra, pp,
+			  ea_2_seg_size(ea),
+			  ea_2_base_size(ea),
+			  actual);
 	BUG_ON(ret != 0, "PTEG spill for EA 0x%x", ea);
 }
 
@@ -652,32 +694,6 @@ mmu_map_range(ea_t ea_start,
 
 	for (; addr < ea_end; addr += size, ra += size) {
 		mmu_map(addr, ra, prot, actual);
-	}
-}
-
-
-void
-mmu_map_vrma(ra_t ra_start,
-	     ra_t ra_end)
-{
-	ra_t ra = ra_start;
-	ra_t vrma = 0;
-
-	for (; ra < ra_end; ra += PAGE_SIZE, vrma += PAGE_SIZE) {
-		mmu_map_vpn(vrma_2_vpn(vrma), ra, PP_RWRW, PAGE_4K, PAGE_4K);
-	}
-}
-
-
-void
-mmu_unmap_vrma(ra_t ra_start,
-	       ra_t ra_end)
-{
-	ra_t ra = ra_start;
-	ra_t vrma = 0;
-
-	for (; ra < ra_end; ra += PAGE_SIZE, vrma += PAGE_SIZE) {
-		mmu_unmap_vpn(vrma_2_vpn(vrma), PAGE_4K, PAGE_4K);
 	}
 }
 

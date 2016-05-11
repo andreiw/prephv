@@ -58,7 +58,7 @@ guest_init(length_t ram_size)
 		int megs = guest->ram_size  / MB(1);
 		for (m = 0; m < megs; m++) {
 			LOG("clearing mb %u", m);
-			memset(guest->ram + MB(m), 0, MB(1));
+                        memset(guest->ram + MB(m), 0, MB(1));
 		}
 	}
 
@@ -125,6 +125,26 @@ guest_exc_try(eframe_t *frame)
 			case SPRN_SRR1:
 				guest->srr1 = R(reg);
 				break;
+			case SPRN_IBAT0U:
+			case SPRN_IBAT0L:
+			case SPRN_IBAT1U:
+			case SPRN_IBAT1L:
+			case SPRN_IBAT2U:
+			case SPRN_IBAT2L:
+			case SPRN_IBAT3U:
+			case SPRN_IBAT3L:
+			case SPRN_DBAT0U:
+			case SPRN_DBAT0L:
+			case SPRN_DBAT1U:
+			case SPRN_DBAT1L:
+			case SPRN_DBAT2U:
+			case SPRN_DBAT2L:
+			case SPRN_DBAT3U:
+			case SPRN_DBAT3L: {
+				uint32_t *batp = guest->ibat;
+				batp[spr - SPRN_IBAT0U] = R(reg);
+				break;
+			}
 			default:
 				FATAL("0x%x: unhandled MTSPR %u, r%u",
 				      frame->hsrr0, spr, reg);
@@ -148,6 +168,26 @@ guest_exc_try(eframe_t *frame)
 			case SPRN_PVR:
 				R(reg) = guest->pvr;
 				break;
+			case SPRN_IBAT0U:
+			case SPRN_IBAT0L:
+			case SPRN_IBAT1U:
+			case SPRN_IBAT1L:
+			case SPRN_IBAT2U:
+			case SPRN_IBAT2L:
+			case SPRN_IBAT3U:
+			case SPRN_IBAT3L:
+			case SPRN_DBAT0U:
+			case SPRN_DBAT0L:
+			case SPRN_DBAT1U:
+			case SPRN_DBAT1L:
+			case SPRN_DBAT2U:
+			case SPRN_DBAT2L:
+			case SPRN_DBAT3U:
+			case SPRN_DBAT3L: {
+				uint32_t *batp = guest->ibat;
+				R(reg) = batp[spr - SPRN_IBAT0U];
+				break;
+			}
 			default:
 				FATAL("0x%x: unhandled MFSPR r%u, %u",
 				      frame->hsrr0, reg, spr);

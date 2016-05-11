@@ -54,6 +54,10 @@ ra_2_ptr(ra_t ra) {
 	return (void *) (ra | HV_ASPACE);
 }
 
+typedef enum {
+  SEG_256M,
+  SEG_1T,
+} seg_size_t;
 
 typedef enum {
   PAGE_4K,
@@ -74,7 +78,5 @@ mmu_map_range(ea_t ea_start,
 	      page_size_t actual);
 
 void mmu_unmap(ea_t ea, page_size_t actual);
-void mmu_map_vrma(ra_t ra_start, ra_t ra_end);
-void mmu_unmap_vrma(ra_t ra_start, ra_t ra_end);
 
 #endif /* MMU_H */
