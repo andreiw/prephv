@@ -24,7 +24,7 @@
 /*
  * 0x0000_0000_0000_0000 - 0x0000_0000_FFFF_FFFF : guest address space
  *
- * SLB slot 3: ESID 0x00_0000, 1TB segment if guest IR/DR = 0, else:
+ * SLB slot 2: ESID 0x00_0000, 1TB segment if guest IR/DR = 0, else:
  *     slot 3:  SR#0
  *     slot 4:  SR#1
  *     slot 5:  SR#2
@@ -48,13 +48,9 @@
  *
  * SLB slot 0: ESID 0x80_0000, 1TB segment, 16M pages.
  *
- * 0x9000_0000_0000_0000 - 0x9FFF_FFFF_FFFF_FFFF : direct IO
- *
- * SLB slot 1: ESID 0x90_0000, 1TB segment, 16M pages.
- *
  * 0xC000_0000_0000_0000 - 0xC000_0000_0010_0000 : AIL exception vectors
  *
- * SLB slot 2: ESID 0xC0_0000, 1TB segment, 4K pages.
+ * SLB slot 1: ESID 0xC0_0000, 256MB segment, 4K pages.
  *
  */
 
@@ -62,7 +58,5 @@
 #define LAYOUT_VM_END   0x0000000100000000UL
 #define LAYOUT_HV_START 0x8000000000000000UL
 #define LAYOUT_HV_END   0x9000000000000000UL
-#define LAYOUT_IO_START 0x9000000000000000UL
-#define LAYOUT_IO_END   0xA000000000000000UL
 
 #endif /* LAYOUT_H */

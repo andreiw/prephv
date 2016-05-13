@@ -36,7 +36,7 @@
 
 /*
  * in order to fit the 78 bit va in a 64 bit variable we shift the va by
- * 12 bits. This enable us to address upto 76 bit va.
+ * 12 bits. This enable us to address up to 76 bit va.
  * For hpt hash from a va we can ignore the page size bits of va and for
  * hpte encoding we ignore up to 23 bits of va. So ignoring lower 12 bits ensure
  * we work in all cases including 4k page size.
@@ -44,9 +44,18 @@
 #define VPN_SHIFT 12
 typedef uint64_t vpn_t;
 
-#define HV_VSID       0UL
-#define AIL_VSID      1UL
-#define IDENTITY_VSID 2UL
+/*
+ * HV/AIL VSIDs need to be large enough not
+ * to collide with guest VSIDs.
+ *
+ * 1T VSIDs are 76 - SID_SHIFT_1T = 36 bits
+ * 256M VSIDs are 76 - SID_SHIFT_256MB = 48 bits
+ *
+ * 32-bit VSIDs are 24 bits large.
+ */
+#define HV_VSID       0x876543210UL
+#define AIL_VSID      0x876543210123UL
+#define IDENTITY_VSID 0UL
 
 static inline seg_size_t
 ea_2_seg_size(ea_t ea)
@@ -209,9 +218,9 @@ slb_init(void)
 
 	/*
 	 *
-	 *  HV: 1TB segment ESID(800000) => VSID(0), 16M pages, slot 0.
-	 * AIL: 256M segment ESID(c00000000) => VSID(1),  4K pages, slot 1.
-	 * 1-1: 1TB segment ESID(000000) => VSID(2),  4K pages, slot 2.
+	 *  HV: 1TB segment ESID(800000) => 16M pages, slot 0.
+	 * AIL: 256M segment ESID(c00000000) => 4K pages, slot 1.
+	 * 1-1: guest RA 1TB segment ESID(000000) => 4K pages, slot 2.
 	 *
 	 * Slot 0  is special (not invalidated with slbia).
 	 */
