@@ -33,6 +33,7 @@ guest_t *guest;
 err_t
 guest_init(length_t ram_size)
 {
+	unsigned i;
 	guest = mem_malloc(sizeof(guest_t));
 	if (guest == NULL) {
 		return ERR_NO_MEM;
@@ -62,9 +63,30 @@ guest_init(length_t ram_size)
 		}
 	}
 
+	/*
+	 * Our initial state isn't "real mode" per se. We
+	 * initialize the shadow MMU and have reasonable SRs,
+	 * but don't bother with guest HTAB.
+	 */
+
+	for (i = 0; i < ARRAY_LEN(guest->sr); i++) {
+		guest->sr[i] = (i << SR_VSID_SHIFT);
+	}
+
+	/*
+	 * Mark the exception range as RO for now to catch
+	 * any null pointer writes due to OF emulation
+	 * mistakes.
+	 */
 	mmu_map_range(LAYOUT_VM_START,
-		      LAYOUT_VM_START + guest->ram_size,
+		      LAYOUT_VM_START + 4096,
 		      ptr_2_ra(guest->ram),
+		      PP_RWRX,
+		      PAGE_4K);
+
+	mmu_map_range(LAYOUT_VM_START + 4096,
+		      LAYOUT_VM_START + guest->ram_size,
+		      ptr_2_ra(guest->ram) + 4096,
 		      PP_RWRW,
 		      PAGE_4K);
 	guest->msr |= MSR_IR | MSR_DR;
@@ -75,7 +97,25 @@ guest_init(length_t ram_size)
 err_t
 guest_exc_try(eframe_t *frame)
 {
-	err_t err;
+	err_t err = ERR_UNSUPPORTED;
+
+	if (frame->vec == EXC_DSEG) {
+		if (get_DAR() >= LAYOUT_VM_END) {
+			return ERR_UNSUPPORTED;
+		}
+
+		err =  mmu_guest_fault_seg(get_DAR());
+	} else if (frame->vec == EXC_ISEG) {
+		if (frame->hsrr0 >= LAYOUT_VM_END) {
+			return ERR_UNSUPPORTED;
+		}
+
+		err = mmu_guest_fault_seg(frame->hsrr0);
+	}
+
+	if (err == ERR_NONE) {
+		return ERR_NONE;
+	}
 
 	if ((frame->hsrr1 & MSR_SF) != 0) {
 		return ERR_UNSUPPORTED;
@@ -89,33 +129,34 @@ guest_exc_try(eframe_t *frame)
 #define PPC_INST_MFSPR_MASK             0xfc0007fe
 #define PPC_INST_MTMSR_MASK             0xfc0007fe
 #define PPC_INST_MFMSR_MASK             0xfc0007fe
+#define PPC_INST_MFSR_MASK              0xfc0007fe
 #define PPC_INST_RFI_MASK               0xfc0007fe
 
 #define PPC_INST_MTSPR                  0x7c0003a6
 #define PPC_INST_MFSPR                  0x7c0002a6
 #define PPC_INST_MTMSR                  0x7c000124
 #define PPC_INST_MFMSR                  0x7c0000a6
+#define PPC_INST_MFSR                   0x7c0004a6
 #define PPC_INST_RFI                    0x4c000064
-
-#define PPC_INST_MFSPR_PVR              0x7c1f42a6
-#define PPC_INST_MFSPR_PVR_MASK         0xfc1fffff
 		uint32_t *i = (uint32_t *) frame->hsrr0;
 
-		if ((*i & PPC_INST_MFMSR_MASK) == PPC_INST_MFMSR) {
+		if ((*i & PPC_INST_MFSR_MASK) == PPC_INST_MFSR) {
+			int reg = MASK_OFF(*i, 25, 21);
+			int sr = MASK_OFF(*i, 19, 16);
+			R(reg) = guest->sr[sr];
+			frame->hsrr0 += 4;
+			return ERR_NONE;
+		} else if ((*i & PPC_INST_MFMSR_MASK) == PPC_INST_MFMSR) {
 			int reg = MASK_OFF(*i, 25, 21);
 			R(reg) = guest->msr;
 			frame->hsrr0 += 4;
 			return ERR_NONE;
-		}
-
-		if ((*i & PPC_INST_MTMSR_MASK) == PPC_INST_MTMSR) {
+		} else if ((*i & PPC_INST_MTMSR_MASK) == PPC_INST_MTMSR) {
 			int reg = MASK_OFF(*i, 25, 21);
 			guest->msr = R(reg);
 			frame->hsrr0 += 4;
 			return ERR_NONE;
-		}
-
-		if ((*i & PPC_INST_MTSPR_MASK) == PPC_INST_MTSPR) {
+		} else if ((*i & PPC_INST_MTSPR_MASK) == PPC_INST_MTSPR) {
 			int reg = MASK_OFF(*i, 25, 21);
 			int spr = MASK_OFF(*i, 20, 11);
 			spr = ((spr & 0x1f) << 5) | ((spr & 0x3e0) >> 5);
@@ -153,9 +194,7 @@ guest_exc_try(eframe_t *frame)
 
 			frame->hsrr0 += 4;
 			return ERR_NONE;
-		}
-
-		if ((*i & PPC_INST_MFSPR_MASK) == PPC_INST_MFSPR) {
+		} else if ((*i & PPC_INST_MFSPR_MASK) == PPC_INST_MFSPR) {
 			int reg = MASK_OFF(*i, 25, 21);
 			int spr = MASK_OFF(*i, 20, 11);
 			spr = ((spr & 0x1f) << 5) | ((spr & 0x3e0) >> 5);
@@ -189,6 +228,17 @@ guest_exc_try(eframe_t *frame)
 				R(reg) = batp[spr - SPRN_IBAT0U];
 				break;
 			}
+			case SPRN_SPRG0:
+			case SPRN_SPRG1:
+			case SPRN_SPRG2:
+			case SPRN_SPRG3: {
+				uint32_t *sprg = guest->sprg;
+				R(reg) = sprg[spr - SPRN_SPRG0];
+				break;
+			}
+			case SPRN_SDR1:
+				R(reg) = guest->sdr1;
+				break;
 			default:
 				FATAL("0x%x: unhandled MFSPR r%u, %u",
 				      frame->hsrr0, reg, spr);
@@ -196,9 +246,7 @@ guest_exc_try(eframe_t *frame)
 
 			frame->hsrr0 += 4;
 			return ERR_NONE;
-		}
-
-		if ((*i & PPC_INST_RFI_MASK) == PPC_INST_RFI) {
+		} else if ((*i & PPC_INST_RFI_MASK) == PPC_INST_RFI) {
 			guest->msr = guest->srr1;
 			frame->hsrr0 = guest->srr0;
 			return ERR_NONE;
@@ -212,5 +260,6 @@ guest_exc_try(eframe_t *frame)
 		return err;
 	}
 
+	WARN("FIXME: inject exception into guest");
 	return ERR_UNSUPPORTED;
 }

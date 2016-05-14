@@ -28,13 +28,14 @@
 	mem: memory {
 		device_type = "memory";
 		/*
-		 * hack: <0x500000 0x100000> used for veneer
+		 * hack: <0x500000 0x100000> used for veneer, and
+		 * memory below 5MB is where we put the "OF" stack.
 		 *
 		 * setupldr gets loaded at 0x600000, but veneer
 		 * refuses to create a MemoryLoadedProgram descriptor
 		 * unless it's listed as a separate range.
 		 */
-		available = <0x1000 0x4ff000 0x600000 0x100000 0x700000 0x3900000>;
+		available = <0x600000 0x100000 0x700000 0x3900000>;
 		reg = <0x0 0x4000000>;
 	};
 

@@ -153,7 +153,8 @@ rom_call(eframe_t *frame)
 		node = fdt_path_offset(prep_dtb, dev);
 		if (node < 0) {
 			WARN("%s -> not found", dev);
-			frame->r3 = -1;
+			frame->r3 = 0;
+			*ihandle = -1;
 		} else {
 			WARN("%s -> %x @ %x", dev, node, ihandle);
 			*ihandle = NODE_MUNGE(node);
@@ -463,6 +464,7 @@ rom_call(eframe_t *frame)
 			BUG_ON(cur_file == NULL, "file not open");
 			fl_fclose(cur_file);
 			cur_file = NULL;
+			frame->r3 = 0;
 		} else if (ih == 0xdddddddd) {
 			guest_disk_offset = 0;
 			frame->r3 = 0;

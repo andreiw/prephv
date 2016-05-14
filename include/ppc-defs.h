@@ -123,6 +123,10 @@
 #define SPRN_SDR1       0x019           /* HTAB base. */
 #define SPRN_DAR        0x013           /* Data Adress Register. */
 #define SPRN_DSISR      0x012           /* Data Storage Interrupt Status */
+#define SPRN_SPRG0      0x110           /* Scratch 0 */
+#define SPRN_SPRG1      0x111           /* Scratch 1 */
+#define SPRN_SPRG2      0x112           /* Scratch 2 */
+#define SPRN_SPRG3      0x113           /* Scratch 3 */
 #define SPRN_PVR        0x11f           /* Processor Version Register */
 #define SPRN_IBAT0U     0x210           /* IBAT0 upper */
 #define SPRN_IBAT0L     0x211           /* IBAT0 lower */
@@ -141,22 +145,10 @@
 #define SPRN_DBAT3U     0x21E           /* DBAT3 upper */
 #define SPRN_DBAT3L     0x21F           /* DBAT3 lower */
 
-
 #define DSISR_NOT_MAPPED_LG    (63 - 33)
 #define DSISR_NOT_MAPPED       __MASK(DSISR_NOT_MAPPED_LG)
 #define SRR1_ISI_NOT_MAPPED_LG (63 -33)
 #define SRR1_ISI_NOT_MAPPED    __MASK(SRR1_ISI_NOT_MAPPED_LG)
-
-#define LPCR_VPMD_LG    (63 - 0)               /* VPM with translation disabled */
-#define LPCR_VPMD       __MASK(LPCR_VPMD_LG)
-#define LPCR_VPME_LG    (63 - 1)               /* VPM with translation enabled */
-#define LPCR_VPME       __MASK(LPCR_VPME_LG)
-#define LPCR_VRMSLP0_LG (63 - 12)              /* VRMA segment LP1 */
-#define LPCR_VRMSLP0    __MASK(LPCR_VRMSLP0_LG)
-#define LPCR_VRMSLP1_LG (63 - 13)              /* VRMA segment LP0 */
-#define LPCR_VRMSLP1    __MASK(LPCR_VRMSLP1_LG)
-#define LPCR_VRMSL_LG   (63 - 16)              /* VRMA segment L */
-#define LPCR_VRMSL      __MASK(LPCR_VRMSL_LG)
 
 #define LPCR_ILE_LG     (63 - 38)              /* Interrupt Little Endian */
 #define LPCR_ILE        __MASK(LPCR_ILE_LG)
@@ -278,16 +270,20 @@
 #define SLB_VSID_SHIFT_1T       24
 #define SLB_VSID_SHIFT_256MB    12
 #define SLB_VSID_B_1T           (1UL << (63-1))
+#define SLB_VSID_KS             (1UL << (63-52))
 #define SLB_VSID_KP             (1UL << (63-53))
 #define SLB_VSID_L              (1UL << (63-55))
 #define SLB_VSID_LP_SHIFT       (63-58)
 #define SLB_VSID_LP_16M         0
 #define SLB_VSID_LP_4K          0
 
-/* Bits in the VRMASD word. */
-#define VRMASD_L                (1UL << (16-12))
-#define VRMASD_LP_SHIFT         (16-16)
-
+/* 32-bit segment register definitions */
+#define SR_INDEX(ea)            (ea >> 28)
+#define SR_T                    (1U << (31 - 0))
+#define SR_KP                   (1U << (31 - 1))
+#define SR_KS                   (1U << (31 - 2))
+#define SR_VSID_MASK            0xFFFFFF
+#define SR_VSID_SHIFT           0
 /*
  * HTAB support.
  *
@@ -315,7 +311,6 @@
  * PTE bits.
  */
 #define PTE_V_1TB_SEG          (0x4000000000000000)
-#define PTE_V_VRMA_MASK        (0x4001ffffff000000)
 #define PTE_V_SSIZE_SHIFT      62
 #define PTE_V_AVPN_SHIFT       7
 #define PTE_V_AVPN             (0x3fffffffffffff80)

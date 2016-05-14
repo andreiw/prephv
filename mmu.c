@@ -32,6 +32,8 @@
 #include <kpcr.h>
 #include <ppc.h>
 #include <mmu.h>
+#include <guest.h>
+#include <layout.h>
 #include <mem.h>
 
 /*
@@ -55,7 +57,7 @@ typedef uint64_t vpn_t;
  */
 #define HV_VSID       0x876543210UL
 #define AIL_VSID      0x876543210123UL
-#define IDENTITY_VSID 0UL
+#define SR_INDEX_TO_SLB_SLOT(x) (x + 2)
 
 static inline seg_size_t
 ea_2_seg_size(ea_t ea)
@@ -69,7 +71,7 @@ ea_2_seg_size(ea_t ea)
 		return SEG_1T;
 	}
 
-	return SEG_1T;
+	return SEG_256M;
 }
 
 
@@ -124,11 +126,11 @@ ea_2_vpn(ea_t ea)
 		       (HV_VSID << (sid_shift - VPN_SHIFT));
 	}
 
-	/*
-	 * 1:1 mappings.
-	 */
+	BUG_ON(ea >= LAYOUT_VM_END, "unexpected EA");
+	BUG_ON(guest == NULL, "VM EA access too early");
+
 	return (ea >> VPN_SHIFT) |
-		       (IDENTITY_VSID << (sid_shift - VPN_SHIFT));
+		(guest->sr[SR_INDEX(ea)] << (sid_shift - VPN_SHIFT));
 }
 
 typedef struct {
@@ -220,7 +222,6 @@ slb_init(void)
 	 *
 	 *  HV: 1TB segment ESID(800000) => 16M pages, slot 0.
 	 * AIL: 256M segment ESID(c00000000) => 4K pages, slot 1.
-	 * 1-1: guest RA 1TB segment ESID(000000) => 4K pages, slot 2.
 	 *
 	 * Slot 0  is special (not invalidated with slbia).
 	 */
@@ -233,14 +234,38 @@ slb_init(void)
 	vsid = slb_make_vsid(AIL_VSID, SEG_256M, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
+	isync();
 
-	esid = slb_make_esid(0, SEG_1T, 2);
-	vsid = slb_make_vsid(IDENTITY_VSID, SEG_1T, PAGE_4K);
+	slb_dump();
+}
+
+
+err_t
+mmu_guest_fault_seg(ea_t ea)
+{
+	uint64_t esid;
+	uint64_t vsid;
+	unsigned sr_index = SR_INDEX(ea);
+	unsigned slb_slot = SR_INDEX_TO_SLB_SLOT(sr_index);
+
+	asm volatile("slbmfee  %0,%1" : "=r" (esid) :
+		     "r" (slb_slot));
+	if (esid != 0) {
+		return ERR_UNSUPPORTED;
+	}
+
+	esid = slb_make_esid(ea, SEG_256M, slb_slot);
+	/*
+	 * FIXME: think through Kp/Ks key depending on
+	 * guest MSR.PR.
+	 */
+	vsid = slb_make_vsid(guest->sr[sr_index] & SR_VSID_MASK,
+			     SEG_256M, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
 	isync();
 
-	slb_dump();
+	return ERR_NONE;
 }
 
 

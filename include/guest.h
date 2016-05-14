@@ -30,6 +30,7 @@ extern struct guest_t *guest;
 
 typedef struct guest_t
 {
+  uint32_t sdr1;
   uint32_t pvr;
   uint32_t msr;
   uint32_t srr0;
@@ -37,6 +38,7 @@ typedef struct guest_t
   uint32_t ibat[8];
   uint32_t dbat[8];
   uint32_t sr[16];
+  uint32_t sprg[4];
   length_t ram_size;
   void     *ram;
   rom_t    rom;

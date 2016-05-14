@@ -24,23 +24,22 @@
 /*
  * 0x0000_0000_0000_0000 - 0x0000_0000_FFFF_FFFF : guest address space
  *
- * SLB slot 2: ESID 0x00_0000, 1TB segment if guest IR/DR = 0, else:
- *     slot 3:  SR#0
- *     slot 4:  SR#1
- *     slot 5:  SR#2
- *     slot 6:  SR#3
- *     slot 7:  SR#4
- *     slot 8:  SR#5
- *     slot 9:  SR#6
- *     slot 10: SR#7 
- *     slot 11: SR#8
- *     slot 12: SR#9
- *     slot 13: SR#A
- *     slot 14: SR#B
- *     slot 15: SR#C
- *     slot 16: SR#D
- *     slot 17: SR#E
- *     slot 18: SR#F
+ * SLB slot 2:  SR#0
+ *     slot 3:  SR#1
+ *     slot 4:  SR#2
+ *     slot 5:  SR#3
+ *     slot 6:  SR#4
+ *     slot 7:  SR#5
+ *     slot 8:  SR#6
+ *     slot 9:  SR#7
+ *     slot 10: SR#8
+ *     slot 11: SR#9
+ *     slot 12: SR#A
+ *     slot 13: SR#B
+ *     slot 14: SR#C
+ *     slot 15: SR#D
+ *     slot 16: SR#E
+ *     slot 17: SR#F
  *
  * ...4K pages, always.
  *
