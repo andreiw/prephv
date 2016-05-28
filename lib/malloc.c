@@ -8,17 +8,24 @@
 #define LACKS_SCHED_H
 #define LACKS_TIME_H
 #define NO_MALLOC_STATS 1
-#define HAVE_MMAP 0
+#define HAVE_MMAP 1
+#define HAVE_MREMAP 0
+#define MAP_ANONYMOUS
+#define HAVE_MORECORE 0
 #define MALLOC_FAILURE_ACTION
 #define NO_DLPOSIX_MEMALIGN
 #define PREFIX(foo) mem_##foo
-#define ABORT BUG_ON(true, "dlmalloc abort")
+#define ABORT(s) BUG_ON(true, "%s: dlmalloc abort at line %u", s, __LINE__)
 
 #include <types.h>
 #include <assert.h>
 #include <mem.h>
 
-#define sbrk mem_sbrk
+/* #define mmap mem_mmap */
+/* #define munmap mem_munmap */
+#define MMAP mem_get_pages
+#define DIRECT_MMAP mem_get_pages
+#define MUNMAP mem_put_pages
 
 typedef intptr_t ptrdiff_t;
 
@@ -645,7 +652,7 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define FOOTERS 0
 #endif  /* FOOTERS */
 #ifndef ABORT
-#define ABORT  abort()
+#define ABORT(x)  abort()
 #endif  /* ABORT */
 #ifndef ABORT_ON_ASSERT_FAILURE
 #define ABORT_ON_ASSERT_FAILURE 1
@@ -1465,7 +1472,7 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
 #ifdef DEBUG
 #if ABORT_ON_ASSERT_FAILURE
 #undef assert
-#define assert(x) if(!(x)) ABORT
+#define assert(x) if(!(x)) ABORT(#x)
 #else /* ABORT_ON_ASSERT_FAILURE */
 #include <assert.h>
 #endif /* ABORT_ON_ASSERT_FAILURE */
@@ -2798,11 +2805,11 @@ static void reset_on_error(mstate m);
 #else /* PROCEED_ON_ERROR */
 
 #ifndef CORRUPTION_ERROR_ACTION
-#define CORRUPTION_ERROR_ACTION(m) ABORT
+#define CORRUPTION_ERROR_ACTION(m) ABORT("corruption")
 #endif /* CORRUPTION_ERROR_ACTION */
 
 #ifndef USAGE_ERROR_ACTION
-#define USAGE_ERROR_ACTION(m,p) ABORT
+#define USAGE_ERROR_ACTION(m,p) ABORT("usage")
 #endif /* USAGE_ERROR_ACTION */
 
 #endif /* PROCEED_ON_ERROR */
@@ -3157,7 +3164,7 @@ static int init_mparams(void) {
         ((MCHUNK_SIZE      & (MCHUNK_SIZE-SIZE_T_ONE))      != 0) ||
         ((gsize            & (gsize-SIZE_T_ONE))            != 0) ||
         ((psize            & (psize-SIZE_T_ONE))            != 0))
-      ABORT;
+      ABORT("sanity");
     mparams.granularity = gsize;
     mparams.page_size = psize;
     mparams.mmap_threshold = DEFAULT_MMAP_THRESHOLD;

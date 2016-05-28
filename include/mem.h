@@ -23,8 +23,11 @@
 
 #include <types.h>
 
+err_t mem_init(void *fdt);
 void mem_free(void *);
 void *mem_malloc(size_t size);
 void *mem_memalign(size_t align, size_t size);
+void *mem_get_pages(size_t length);
+int mem_put_pages(void *base, size_t length);
 
 #endif /* MEM_H */

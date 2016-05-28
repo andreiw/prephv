@@ -66,7 +66,7 @@ cpu_init(void *fdt)
 
 	be32_data = fdt_getprop(fdt, node, "slb-size", NULL);
 	if (be32_data != NULL) {
-		slb_size = be32_to_cpu(*be32_data);
+		slb_size = fdt32_to_cpu(*be32_data);
 	} else {
 		LOG("Assuming default SLB size");
 		slb_size = 32;
@@ -76,7 +76,7 @@ cpu_init(void *fdt)
 
 	be32_data = fdt_getprop(fdt, node, "timebase-frequency", NULL);
 	if (be32_data != NULL) {
-		tb_freq = be32_to_cpu(*be32_data);
+		tb_freq = fdt32_to_cpu(*be32_data);
 	} else {
 		LOG("Assuming default TB frequency");
 		tb_freq = 512000000;
@@ -92,7 +92,7 @@ cpu_init(void *fdt)
 	if (node >= 0) {
 		be32_data = fdt_getprop(fdt, node, "ibm,heartbeat-ms", NULL);
 		if (be32_data != NULL) {
-			opal_ms = be32_to_cpu(*be32_data);
+			opal_ms = fdt32_to_cpu(*be32_data);
 		}
 	}
 
@@ -117,10 +117,10 @@ cpu_init(void *fdt)
 }
 
 
-
 void
 c_main(ra_t fdt_ra)
 {
+	err_t err;
 #define HELLO_PREPHV "Hello, PReP HV!\n"
 	void *fdt;
 	uint64_t len = cpu_to_be64(sizeof(HELLO_PREPHV));
@@ -143,16 +143,18 @@ c_main(ra_t fdt_ra)
 	LOG("FDT    = 0x%x", fdt_ra);
 	fdt = ra_2_ptr(fdt_ra);
 
+	err = mem_init(fdt);
+	BUG_ON(err != ERR_NONE, "mem_init failed: %r", err);
+
 	cpu_init(fdt);
 
 	/*
 	 * Guest memory.
 	 */
 	{
-		err_t err;
 		eframe_t uframe;
 
-		err = guest_init(MB(64));
+		err = guest_init(MB(128));
 		BUG_ON(err != ERR_NONE, "guest init failed");
 
 		err = rom_init(fdt);
