@@ -5,6 +5,7 @@ SHELL := /bin/bash
 
 OBJ = entry.o main.o console.o lib/string.o fdt.o fdt_strerror.o fdt_ro.o exc-vecs.o guest.o \
       exc.o time.o mmu.o mem.o opal.o cache.o rom.o lib/ctype.o lib/vsprintf.o log.o lib/malloc.o \
+      lib/ranges.o \
       fat/fat_cache.o    fat/fat_format.o  fat/fat_string.o  fat/fat_write.o \
       fat/fat_access.o  fat/fat_filelib.o  fat/fat_misc.o    fat/fat_table.o
 

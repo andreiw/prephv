@@ -23,122 +23,11 @@
 #include <linkage.h>
 #include <assert.h>
 #include <libfdt.h>
-#include <list.h>
+#include <ranges.h>
 #include <mmu.h>
 #include <mem.h>
 
-static struct list_head ranges;
-
-typedef struct range_s
-{
-	struct list_head link;
-	uint64_t base;
-	uint64_t limit;
-} range_t;
-
-
-static
-void range_init(void)
-{
-	INIT_LIST_HEAD(&ranges);
-}
-
-
-static
-range_t *range_alloc(uint64_t base,
-		     uint64_t limit)
-{
-	range_t *r = mem_malloc(sizeof(range_t));
-	BUG_ON(r == NULL, "failed to alloc range struct for 0x%lx-0x%lx",
-	       base, limit);
-
-	r->base = base;
-	r->limit = limit;
-	INIT_LIST_HEAD(&r->link);
-	return r;
-}
-
-
-static
-void range_dump(void)
-{
-	range_t *range;
-
-	list_for_each_entry(range, &ranges, link) {
-		LOG("range 0x%lx-0x%lx", range->base, range->limit);
-	}
-}
-
-
-static
-void range_add(uint64_t base,
-	       uint64_t limit)
-{
-	range_t *range;
-	range_t *r = range_alloc(base, limit);
-
-	BUG_ON(base >= limit, "base (0x%lx) >= limit (0x%lx)",
-	       base, limit);
-
-	list_for_each_entry(range, &ranges, link) {
-		BUG_ON(base >= range->base && limit <= range->limit,
-		       "range 0x%lx-0x%lx already present",
-		       base, limit);
-
-		if (range->base > limit) {
-			list_add_tail(&r->link, &range->link);
-			return;
-		}
-	}
-
-	list_add_tail(&r->link, &ranges);
-}
-
-
-static
-void range_remove(uint64_t base,
-		  uint64_t limit)
-{
-	range_t *range;
-	range_t *n;
-
-	BUG_ON(base >= limit, "base (0x%lx) >= limit (0x%lx)",
-	       base, limit);
-
-	list_for_each_entry_safe(range, n, &ranges, link) {
-		if (range->base > limit ||
-		    range->limit < base) {
-			continue;
-		} else if (range->base >= base &&
-		    range->limit <= limit) {
-			/*
-			 * Entire range to be deleted.
-			 */
-			list_del(&range->link);
-			mem_free(range);
-		} else {
-			if (range->base >= base) {
-				/*
-				 * range->limit > limit.
-				 */
-				range->base = limit + 1;
-			} else if (range->limit <= limit) {
-				/*
-				 * range->base < base.
-				 */
-				range->limit = base - 1;
-			} else {
-				uint64_t b = range->base;
-				/*
-				 * range->base < base.
-				 * range->limit > limit.
-				 */
-				range->base = limit + 1;
-				range_add(b, base - 1);
-			}
-		}
-	}
-}
+static ranges_t mem_free_ranges;
 
 static bool_t mem_early = true;
 #define EARLY_MEMORY (PAGE_SIZE * 64)
@@ -159,7 +48,7 @@ mem_init(void *fdt)
 
 	LOG("Early memory: 0x%lx - 0x%lx", early_memory,
 	     early_memory + EARLY_MEMORY - 1);
-	range_init();
+	range_init(&mem_free_ranges);
 
 	for (node = fdt_node_offset_by_dtype(fdt, -1, "memory");
 	     node != -1;
@@ -172,7 +61,7 @@ mem_init(void *fdt)
 		base = fdt64_to_cpu(*prop);
 		size  = fdt64_to_cpu(*(prop + 1));
 		LOG("Memory: 0x%lx - 0x%lx", base, base + size - 1);
-		range_add(base, base + size - 1);
+		range_add(&mem_free_ranges, base, base + size - 1);
 		status = ERR_NONE;
 	}
 
@@ -183,24 +72,27 @@ mem_init(void *fdt)
 	/*
 	 * Remove self.
 	 */
-	range_remove((uint64_t) ptr_2_ra(&_start), ptr_2_ra(&_end) - 1);
+	range_remove(&mem_free_ranges, (uint64_t) ptr_2_ra(&_start),
+		     ptr_2_ra(&_end) - 1);
 
 	/*
 	 * Remove the CPU exception vectors at 0.
 	 */
-	range_remove((uint64_t) 0,  (uintptr_t) &exc_end - (uintptr_t) &exc_base - 1);
+	range_remove(&mem_free_ranges, (uint64_t) 0,
+		     (uintptr_t) &exc_end - (uintptr_t) &exc_base - 1);
 
 	/*
 	 * Remove fdt itself (should I rely on this being one of OPAL
 	 * reserved ranges?).
 	 */
-	range_remove(ptr_2_ra(fdt), ptr_2_ra(fdt) + fdt_size_dt_struct(fdt) - 1);
+	range_remove(&mem_free_ranges, ptr_2_ra(fdt),
+		     ptr_2_ra(fdt) + fdt_size_dt_struct(fdt) - 1);
 
 	resv_count = fdt_num_mem_rsv(fdt);
 	for (node = 0; node < resv_count; node++) {
 		fdt_get_mem_rsv(fdt, node, &base, &size);
 		LOG("Reserved: 0x%lx - 0x%lx", base, base + size - 1);
-		range_remove(base, base + size - 1);
+		range_remove(&mem_free_ranges, base, base + size - 1);
 	}
 
 
@@ -234,10 +126,10 @@ mem_init(void *fdt)
 	}
 
 	LOG("Initrd: 0x%lx - 0x%lx", base, base + size - 1);
-	range_remove(base, base + size - 1);
+	range_remove(&mem_free_ranges, base, base + size - 1);
 
 	mem_early = false;
-	range_dump();
+	range_dump(&mem_free_ranges);
 	return status;
 }
 
@@ -266,13 +158,14 @@ mem_get_pages(size_t length)
 		return sbrk - length;
 	}
 
-	list_for_each_entry_safe(r, n, &ranges, link) {
+	list_for_each_entry_safe(r, n, &mem_free_ranges, link) {
 		ra_t base_aligned = ALIGN_UP(r->base, PAGE_SIZE);
 		ra_t limit_aligned = ALIGN(r->limit, PAGE_SIZE);
 
 		if (base_aligned < limit_aligned &&
 		    (limit_aligned - base_aligned) >= length) {
-			range_remove(base_aligned, base_aligned + length - 1);
+			range_remove(&mem_free_ranges, base_aligned,
+				     base_aligned + length - 1);
 			return ra_2_ptr(base_aligned);
 		}
 	}
