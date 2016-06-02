@@ -24,6 +24,20 @@
 #include <mem.h>
 
 
+length_t
+range_count(ranges_t *ranges)
+{
+	range_t *range;
+	length_t c = 0;
+
+	list_for_each_entry(range, ranges, link) {
+		c++;
+	}
+
+	return c;
+}
+
+
 range_t *
 range_alloc(uint64_t base,
 	    uint64_t limit)

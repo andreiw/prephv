@@ -47,11 +47,11 @@ typedef struct guest_t
 static inline bool_t
 guest_is_mmu_off(void)
 {
-  BUG_ON(guest == NULL, "guest NULL");
-  BUG_ON(((guest->msr >> MSR_IR_LG) & 1) !=
-         ((guest->msr >> MSR_DR_LG) & 1), "inconsistent IR/DR");
+	BUG_ON(guest == NULL, "guest NULL");
+	BUG_ON(((guest->msr >> MSR_IR_LG) & 1) !=
+	       ((guest->msr >> MSR_DR_LG) & 1), "inconsistent IR/DR");
 
-  return (guest->msr >> MSR_IR_LG) & 1;
+	return ((guest->msr >> MSR_IR_LG) & 1) == 0;
 }
 
 err_t guest_init(length_t ram_size);

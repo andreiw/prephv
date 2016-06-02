@@ -28,7 +28,7 @@
 #include <time.h>
 #include <layout.h>
 #include <mem.h>
-
+#include <ranges.h>
 #include <fat_filelib.h>
 
 #define NODE_MUNGE(x) (x + 0x10000000)
@@ -39,10 +39,13 @@
 #define LOG(x, ...)
 #define WARN(x, ...)
 
-FL_FILE *cur_file = NULL;
-void *guest_disk;
-int guest_disk_offset;
-uint64_t guest_disk_len;
+static FL_FILE *cur_file = NULL;
+static void *guest_disk;
+static int guest_disk_offset;
+static uint64_t guest_disk_len;
+static ranges_t guest_mem_avail_ranges;
+static ranges_t guest_mem_reg_ranges;
+static int memory_node;
 
 int
 rom_stdin(char *buf, uint32_t len)
@@ -100,6 +103,14 @@ rom_stdout(char *s, uint32_t len)
 		} else {
 			if (*s == 0xcd) {
 				con_putchar('=');
+			} else if (*s == 0xba) {
+				con_putchar('|');
+			} else if (*s == 0xbb ||
+				   *s == 0xc8) {
+				con_putchar('\\');
+			} else if (*s == 0xbc ||
+				   *s == 0xc9) {
+				con_putchar('/');
 			} else {
 				con_putchar(*s);
 			}
@@ -131,8 +142,171 @@ rom_claim(uint32_t addr, uint32_t size, uint32_t align)
 		out = addr;
 	}
 
+	/*
+	 * Internally we keep track of all allocations at page granularity,
+	 * due to some buggy handling of non-page aligned ranges in veneer.
+	 */
+	range_remove(&guest_mem_avail_ranges,
+		     ALIGN(out, PAGE_SIZE),
+		     ALIGN_UP(out + size, PAGE_SIZE) - 1);
 	return out;
 }
+
+
+static int32_t
+rom_memory_getprop(char *name,
+	    uint32_t *dest_len,
+	    void *dest_data,
+	    uint32_t max_data)
+{
+	int len;
+	const void *data;
+
+	WARN("enter with name %s", name);
+	if (!strcmp(name, "reg")) {
+		uint32_t *d = dest_data;
+		len = range_count(&guest_mem_reg_ranges) * sizeof(uint32_t) * 2;
+
+		if (max_data == 0) {
+			*dest_len = len;
+		} else {
+			*dest_len = min((uint32_t) len, max_data);
+		}
+
+		if (d != NULL) {
+			range_t *r;
+
+			list_for_each_entry(r, &guest_mem_reg_ranges, link) {
+				if (len <= 0) {
+					break;
+				}
+
+				*d = cpu_to_fdt32((uint32_t) r->base);
+				WARN("writing base 0x%x to %p (0x%x)", r->base, d, *d);
+				len -= sizeof(uint32_t); d++;
+
+				if (len <= 0) {
+					break;
+				}
+
+				*d = cpu_to_fdt32((uint32_t) (r->limit - r->base + 1));
+				WARN("writing size 0x%x to %p (0x%x)",
+				     r->limit - r->base + 1, d, *d);
+				len -= sizeof(uint32_t); d++;
+			}
+		}
+	} else if (!strcmp(name, "available")) {
+		uint32_t *d = dest_data;
+		len = range_count(&guest_mem_avail_ranges) * sizeof(uint32_t) * 2;
+
+		if (max_data == 0) {
+			*dest_len = len;
+		} else {
+			*dest_len = min((uint32_t) len, max_data);
+		}
+
+		if (d != NULL) {
+			range_t *r;
+
+			list_for_each_entry(r, &guest_mem_avail_ranges, link) {
+				/*
+				 * Somehow veneer really doesn't like non-page aligned
+				 * quantities in the "available" property.
+				 */
+				uint32_t b = r->base;
+				uint32_t bs = r->limit - r->base + 1;
+
+				BUG_ON(b % PAGE_SIZE != 0, "unexpected avail range 0x%x-0x%x",
+                                       r->base, r->limit);
+				BUG_ON(bs % PAGE_SIZE != 0, "unexpected avail range 0x%x-0x%x",
+				       r->base, r->limit);
+
+				if (len <= 0) {
+					break;
+				}
+
+				*d = cpu_to_fdt32(b);
+				len -= sizeof(uint32_t); d++;
+
+				if (len <= 0) {
+					break;
+				}
+
+				*d = cpu_to_fdt32(bs);
+				len -= sizeof(uint32_t); d++;
+			}
+		}
+	} else {
+		data = fdt_getprop(prep_dtb,
+				   memory_node, name,
+				   &len);
+
+		if (data == NULL) {
+			return -1;
+		}
+
+		WARN("found with len %x", len);
+		if (max_data == 0) {
+			*dest_len = len;
+		} else {
+			*dest_len = min((uint32_t) len, max_data);;
+		}
+
+		if (dest_data != NULL) {
+			memcpy(dest_data, data,
+			       min((uint32_t) len, max_data));
+		}
+	}
+
+	return 0;
+}
+
+
+static int32_t
+rom_getprop(int node,
+	    char *name,
+	    uint32_t *dest_len,
+	    void *dest_data,
+	    uint32_t max_data)
+{
+	const void *data;
+	int len;
+
+	if (!strcmp(name, "name")) {
+		if (node == 0) {
+			data = "/";
+			len = 1;
+		} else {
+			data = fdt_get_name(prep_dtb,
+					    node,
+					    &len);
+			BUG_ON(data == NULL, "fdt_get_name failed for 0x%x", node);
+		}
+	} else if (node == memory_node) {
+		return rom_memory_getprop(name,
+					  dest_len,
+					  dest_data,
+					  max_data);
+	} else {
+		data = fdt_getprop(prep_dtb,
+				   node, name,
+				   &len);
+	}
+
+	if (data == NULL) {
+		return -1;
+	}
+
+	WARN("found with len %x", len);
+	*dest_len = len;
+
+	if (dest_data != NULL) {
+		memcpy(dest_data, data, min((uint32_t) len, max_data));
+	}
+
+	return 0;
+}
+
 
 err_t
 rom_call(eframe_t *frame)
@@ -243,77 +417,29 @@ rom_call(eframe_t *frame)
 		}
 		frame->r3 = 0;
 	} else if (!strcmp("getproplen", (char *) (uintptr_t) *cia)) {
-		const void *data;
 		int node = *(cia + 3);
 		char *name = (char *) (uintptr_t) *(cia + 4);
 		uint32_t *lenp = cia + 5;
-		int len;
 
 		WARN("getproplen %s %x", name, node);
 		node = NODE_DEMUNGE(node);
 
-		if (!strcmp(name, "name")) {
-			if (node == 0) {
-				data = "/";
-				len = 1;
-			} else {
-				data = fdt_get_name(prep_dtb,
-						    node,
-						    &len);
-				BUG_ON(data == NULL, "fdt_get_name failed for 0x%x", node);
-			}
-		} else {
-			data = fdt_getprop(prep_dtb,
-					   node, name,
-					   &len);
-		}
-
-		if (data == NULL) {
-			frame->r3 = -1;
-		} else {
-			WARN("found with len %x", len);
-			*lenp = len;
-			frame->r3 = 0;
-		}
+		frame->r3 = rom_getprop(node, name, lenp, NULL, 0);
 	} else if (!strcmp("getprop", (char *) (uintptr_t) *cia)) {
-		const void *data;
 		int node  = *(cia + 3);
 		char *name = (char *) (uintptr_t) *(cia + 4);
+		uint32_t *datap = (void *) (uintptr_t) *(cia + 5);
+		uint32_t datalen = *(cia + 6);
+		uint32_t *lenp = cia + 7;
 		node = NODE_DEMUNGE(node);
-		int len;
 		
-		WARN("node %x %s -> %x (%x bytes) (ptr for size %x)",
+		WARN("getprop node %x %s -> %x (%x bytes) (ptr for size %x)",
 		     node, name,
 		     (uintptr_t) *(cia + 5),
-		     (uintptr_t) *(cia + 6),
+		     datalen,
 		     (uintptr_t) (cia + 7));
 
-		if (!strcmp(name, "name")) {
-			if (node == 0) {
-				data = "/";
-				len = 1;
-			} else {
-				data = fdt_get_name(prep_dtb,
-						    node,
-						    &len);
-				BUG_ON(data == NULL, "fdt_get_name failed for %x", node);
-			}
-		} else {
-			data = fdt_getprop(prep_dtb,
-					   node,
-					   name,
-					   &len);
-		}
-
-		if (data == NULL) {
-			frame->r3 = -1;
-		} else {
-			WARN("found with len %x data %x", len, *(uint32_t *) data);
-			memcpy((void *) (uintptr_t) *(cia + 5),
-			       data, len);
-			*(uint32_t *) (uintptr_t) (cia + 7) = len;
-			frame->r3 = 0;
-		}
+		frame->r3 = rom_getprop(node, name, lenp, datap, datalen);
 	} else if (!strcmp("call-method", (char *) (uintptr_t) *cia)) {
 		WARN("in %x out %x %s on ihandle %x",
 		     (char *) (uintptr_t) *(cia + 1),
@@ -569,6 +695,25 @@ rom_init(void *fdt)
 	length_t veneer_len;
 	uint32_t hvcall = 0x44000022; /* sc 1 */
 
+	BUG_ON(guest == NULL, "guest state invalid");
+	BUG_ON(guest->ram_size <= MB(16), "guest RAM too small");
+
+	range_init(&guest_mem_avail_ranges);
+	range_init(&guest_mem_reg_ranges);
+	range_add(&guest_mem_avail_ranges, 0, guest->ram_size - 1);
+	range_add(&guest_mem_reg_ranges, 0, guest->ram_size - 1);
+
+	guest->rom.claim_arena_start = guest->ram_size - MB(16);
+	guest->rom.claim_arena_ptr = guest->rom.claim_arena_start;
+	guest->rom.claim_arena_end = guest->ram_size;
+
+	/*
+	 * We'll special case property accesses for RAM since
+	 * we need to feed live available ranges.
+	 */
+	memory_node = fdt_node_offset_by_dtype(prep_dtb, -1, "memory");
+	BUG_ON(memory_node == -1, "memory node missing from DT template");
+
 	err = rom_disk_init(fdt);
 	if (err != ERR_NONE) {
 		return err;
@@ -599,6 +744,7 @@ rom_init(void *fdt)
 	}
 	veneer_len -= 0x200;
 
+	rom_claim(0x50000, veneer_len, 0);
 	if (fl_fread((void *) (LAYOUT_VM_START + 0x00050000),
 		     veneer_len, 1, fl) != veneer_len) {
 		ERROR("Read failure");
@@ -609,6 +755,7 @@ rom_init(void *fdt)
 	lwsync();
 	flush_cache(LAYOUT_VM_START + 0x00050000, veneer_len);
 
+	rom_claim(4, 4, 0);
 	memcpy((void *) (LAYOUT_VM_START + 0x4), &hvcall, 4);
 	lwsync();
 	flush_cache(LAYOUT_VM_START + 0x4, 4);

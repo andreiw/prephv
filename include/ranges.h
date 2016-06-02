@@ -46,5 +46,6 @@ void range_add(ranges_t *ranges,
 void range_remove(ranges_t *ranges,
 		  uint64_t base,
 		  uint64_t limit);
+length_t range_count(ranges_t *ranges);
 
 #endif /* RANGE_H */

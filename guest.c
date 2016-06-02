@@ -45,10 +45,6 @@ guest_init(length_t ram_size)
 	guest->pvr = 0x00040103; /* 604 */
 	guest->msr = 0;
 	guest->ram_size = ram_size;
-	guest->rom.claim_arena_start = guest->ram_size - MB(16);
-	guest->rom.claim_arena_ptr = guest->rom.claim_arena_start;
-	guest->rom.claim_arena_end = guest->ram_size;
-
 	guest->ram = mem_memalign(MB(1), guest->ram_size);
 
 	LOG("HV pointer to GRAM %p", guest->ram);
