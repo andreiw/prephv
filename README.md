@@ -33,14 +33,15 @@ Status
 
 Today I fake out enough of OpenFirware client interface to
 successfully run the VENEER.EXE ARC shim and hand off to
-SETUPLDR. Not much else. Specifically, the CPU VM state is
+SETUPLDR. SETUPLDR is capable of loading the NT kernel and
+asks for a HAL. Not much else. Specifically, the CPU VM state is
 not modelled quite well (or at all...?).
 
 ![ARC veneer image](/docs/veneer.png?raw=true "In ARC menu")
-![setupldr image](/docs/setupldr.png?raw=true "In SETUPLDR")
+![setupldr HAL question image](/docs/halask.png?raw=true "Asking for a HAL")
 
 The "disk" is passed as initrd. This is nowhere near
-being able to run any portion of NT kernel.
+being able to run any portion of the NT kernel.
 
 Building
 --------
@@ -70,6 +71,8 @@ You now need an image.fat that contains at least the following
 files from the NT 4.0 CD, which are obviously not distributable:
 - \veneer.exe    from /PPC/VENEER.EXE
 - \osloader.exe  from /PPC/SETUPLDR
+- \ntkrnlmp.exe  from /PPC/NTKRNLMP.EXE
+- \txtsetup.sif  from /PPC/TXTSETUP.SIF
 
 I've used FAT16. Other FAT types are untested. Good luck.
 
