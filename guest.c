@@ -39,7 +39,7 @@ guest_init(length_t ram_size)
 		return ERR_NO_MEM;
 	}
 
-	BUG_ON(ram_size < MB(64), "too little RAM");
+	BUG_ON(ram_size < MB(32), "too little RAM");
 	memset(guest, 0, sizeof(guest_t));
 
 	guest->pvr = 0x00040103; /* 604 */
@@ -69,20 +69,9 @@ guest_init(length_t ram_size)
 		guest->sr[i] = (i << SR_VSID_SHIFT);
 	}
 
-	/*
-	 * Mark the exception range as RO for now to catch
-	 * any null pointer writes due to OF emulation
-	 * mistakes.
-	 */
 	mmu_map_range(LAYOUT_VM_START,
-		      LAYOUT_VM_START + 4096,
-		      ptr_2_ra(guest->ram),
-		      PP_RWRX,
-		      PAGE_4K);
-
-	mmu_map_range(LAYOUT_VM_START + 4096,
 		      LAYOUT_VM_START + guest->ram_size,
-		      ptr_2_ra(guest->ram) + 4096,
+		      ptr_2_ra(guest->ram),
 		      PP_RWRW,
 		      PAGE_4K);
 	guest->msr |= MSR_IR | MSR_DR;
@@ -248,7 +237,7 @@ guest_exc_try(eframe_t *frame)
 			return ERR_NONE;
 		}
 
-		FATAL("0x%x: unhandled insn 0x%x", frame->hsrr0, *i);
+		ERROR("0x%x: unhandled insn 0x%x", frame->hsrr0, *i);
 	} else if (frame->vec == EXC_SC) {
 		mtmsrd(MSR_RI, 1);
 		err = rom_call(frame);

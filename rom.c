@@ -579,7 +579,7 @@ rom_call(eframe_t *frame)
 			*ih = 0xdddddddd;
 			guest_disk_offset = 0;
 		} else {
-			ERROR("unknown open path");
+			WARN("unknown open path '%s'", path);
 			frame->r3 = -1;
 			*ih = 0;
 		}
@@ -755,10 +755,22 @@ rom_init(void *fdt)
 	lwsync();
 	flush_cache(LAYOUT_VM_START + 0x00050000, veneer_len);
 
-	rom_claim(4, 4, 0);
-	memcpy((void *) (LAYOUT_VM_START + 0x4), &hvcall, 4);
+	/*
+	 * Setup CIF entry point. We will use a syscall instruction.
+	 */
+	guest->rom.cif_trampoline = 0x4;
+	rom_claim(guest->rom.cif_trampoline , 4, 0);
+	memcpy((void *) (LAYOUT_VM_START + guest->rom.cif_trampoline),
+	       &hvcall, 4);
 	lwsync();
-	flush_cache(LAYOUT_VM_START + 0x4, 4);
+	flush_cache(LAYOUT_VM_START + guest->rom.cif_trampoline, 4);
 
+	/*
+	 * Reserve and set up "OF" stack.
+	 */
+	guest->rom.stack_end = guest->rom.claim_arena_start;
+	guest->rom.stack_start = guest->rom.stack_end - MB(1);
+	rom_claim(guest->rom.stack_start, guest->rom.stack_end -
+		  guest->rom.stack_start, 0);
 	return ERR_NONE;
 }

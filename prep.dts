@@ -3,6 +3,9 @@
 / {
 	model = "HV,PReP";
 	compatible = "prep";
+
+	//  Power Series 440 (6015) aka Sandalfoot
+	arc-identifier = "IBM-6015";
 	coherency-off;
 	#address-cells = <1>;
 	#size-cells = <1>;

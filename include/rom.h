@@ -26,9 +26,12 @@
 
 typedef struct rom_t
 {
+	gra_t cif_trampoline;
 	gra_t claim_arena_start;
 	gra_t claim_arena_ptr;
 	gra_t claim_arena_end;
+	gra_t stack_start;
+	gra_t stack_end;
 } rom_t;
 
 err_t rom_init(void *fdt);

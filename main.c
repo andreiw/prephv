@@ -154,15 +154,16 @@ c_main(ra_t fdt_ra)
 	{
 		eframe_t uframe;
 
-		err = guest_init(MB(128));
+		err = guest_init(MB(32));
 		BUG_ON(err != ERR_NONE, "guest init failed");
 
 		err = rom_init(fdt);
 		BUG_ON(err != ERR_NONE, "rom init failed");
 
 		memset(&uframe, 0, sizeof(uframe));
-		uframe.r1 = LAYOUT_VM_START + 0x00050000 - STACKFRAMESIZE;
-		uframe.r5 = LAYOUT_VM_START + 0x4;
+		uframe.r1 = LAYOUT_VM_START + guest->rom.stack_end
+			- STACKFRAMESIZE;
+		uframe.r5 = LAYOUT_VM_START + guest->rom.cif_trampoline;
 		uframe.hsrr0 = LAYOUT_VM_START + 0x00050000;
 		uframe.hsrr1 = (mfmsr() ^ MSR_SF) | MSR_PR;
 
