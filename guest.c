@@ -42,7 +42,12 @@ guest_init(length_t ram_size)
 	BUG_ON(ram_size < MB(32), "too little RAM");
 	memset(guest, 0, sizeof(guest_t));
 
-	guest->pvr = 0x00040103; /* 604 */
+//	guest->pvr = 0x00010001; /* 601  - YES!   */
+//	guest->pvr = 0x00030001; /* 603  - YES!   */
+	guest->pvr = 0x00040103; /* 604  - YES!   */
+//	guest->pvr = 0x00090204; /* 604e - YES!   */
+//	guest->pvr = 0x00080200; /* G3   - YES!!! */
+//	guest->pvr = 0x000c0200; /* G4   - NOPE.  */
 	guest->msr = 0;
 	guest->ram_size = ram_size;
 	guest->ram = mem_memalign(MB(1), guest->ram_size);
