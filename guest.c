@@ -175,8 +175,27 @@ guest_exc_try(eframe_t *frame)
 			case SPRN_DBAT3L: {
 				uint32_t *batp = guest->ibat;
 				batp[spr - SPRN_IBAT0U] = R(reg);
+				ERROR("BAT%u = 0x%x (MMU off? %u)",
+				      spr - SPRN_IBAT0U,
+				      R(reg), guest_is_mmu_off());
 				break;
 			}
+			case SPRN_SPRG0:
+			case SPRN_SPRG1:
+			case SPRN_SPRG2:
+			case SPRN_SPRG3: {
+				uint32_t *sprg = guest->sprg;
+				sprg[spr - SPRN_SPRG0] = R(reg);
+				ERROR("SPRG%u = 0x%x (MMU off? %u)",
+				      spr - SPRN_SPRG0,
+				      R(reg), guest_is_mmu_off());
+				break;
+			}
+			case SPRN_SDR1:
+				guest->sdr1 = R(reg);
+				ERROR("SDR1 = 0x%x (MMU off? %u)", R(reg),
+				      guest_is_mmu_off());
+				break;
 			default:
 				FATAL("0x%x: unhandled MTSPR %u, r%u",
 				      frame->hsrr0, spr, reg);
