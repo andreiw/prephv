@@ -394,7 +394,9 @@ rom_call(eframe_t *frame)
 	} else if (!strcmp("write", (char *) (uintptr_t) *cia)) {
 		char *data = (char *) (uintptr_t) *(cia + 4);
 		uint32_t len = *(cia + 5);
+		uint32_t *outlen = (cia + 6);
 		rom_stdout(data, len);
+		*outlen = len;
 		frame->r3 = 0;
 	} else if (!strcmp("read", (char *) (uintptr_t) *cia)) {
 		uint32_t ih = *(cia + 3);
