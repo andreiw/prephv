@@ -56,8 +56,12 @@ typedef uint64_t vpn_t;
  * 32-bit VSIDs are 24 bits large.
  */
 #define HV_VSID       0x876543210UL
+#define HV_SLOT       0
 #define AIL_VSID      0x876543210123UL
-#define SR_INDEX_TO_SLB_SLOT(x) (x + 2)
+#define AIL_SLOT      1
+#define GRM_VSID      0x555555555UL
+#define GRM_SLOT      2
+#define SR_INDEX_TO_SLB_SLOT(x) (x + 3)
 
 static inline seg_size_t
 ea_2_seg_size(ea_t ea)
@@ -68,6 +72,13 @@ ea_2_seg_size(ea_t ea)
 	}
 
 	if ((ea & HV_ASPACE) != 0) {
+		return SEG_1T;
+	}
+
+	BUG_ON(ea >= LAYOUT_VM_END, "unknown EA");
+	BUG_ON(guest == NULL, "VM EA access too early");
+
+	if (guest_is_mmu_off()) {
 		return SEG_1T;
 	}
 
@@ -92,9 +103,16 @@ ea_2_base_size(ea_t ea)
 		return PAGE_4K;
 	} else if (ea >= HV_ASPACE) {
 		return PAGE_16M;
-	} else {
-		return PAGE_4K;
 	}
+
+	BUG_ON(ea >= LAYOUT_VM_END, "unknown EA");
+	BUG_ON(guest == NULL, "VM EA access too early");
+
+	if (guest_is_mmu_off()) {
+		return PAGE_16M;
+	}
+
+	return PAGE_4K;
 }
 
 
@@ -129,7 +147,12 @@ ea_2_vpn(ea_t ea)
 	BUG_ON(ea >= LAYOUT_VM_END, "unexpected EA");
 	BUG_ON(guest == NULL, "VM EA access too early");
 
-	return (ea >> VPN_SHIFT) |
+	if (guest_is_mmu_off()) {
+		return ((ea - LAYOUT_VM_START) >> VPN_SHIFT) |
+			(GRM_VSID << (sid_shift - VPN_SHIFT));
+	}
+
+	return ((ea - LAYOUT_VM_START) >> VPN_SHIFT) |
 		(guest->sr[SR_INDEX(ea)] << (sid_shift - VPN_SHIFT));
 }
 
@@ -162,7 +185,7 @@ slb_make_esid(ea_t ea,
 
 static uint64_t
 slb_make_vsid(uint64_t vsid,
-              seg_size_t seg_size,
+	      seg_size_t seg_size,
 	      page_size_t base)
 {
 	uint64_t lp;
@@ -225,18 +248,39 @@ slb_init(void)
 	 *
 	 * Slot 0  is special (not invalidated with slbia).
 	 */
-	esid = slb_make_esid(HV_ASPACE, SEG_1T, 0);
+	esid = slb_make_esid(HV_ASPACE, SEG_1T, HV_SLOT);
 	vsid = slb_make_vsid(HV_VSID, SEG_1T, PAGE_16M);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
 
-	esid = slb_make_esid(AIL_ASPACE_START, SEG_256M, 1);
+	esid = slb_make_esid(AIL_ASPACE_START, SEG_256M, AIL_SLOT);
 	vsid = slb_make_vsid(AIL_VSID, SEG_256M, PAGE_4K);
 	asm volatile("slbmte %0, %1" ::
 		     "r"(vsid), "r"(esid) : "memory");
 	isync();
 
 	slb_dump();
+}
+
+
+static
+void slb_invalidate(ea_t ea,
+                    seg_size_t seg_size)
+{
+	uint64_t ea_mask;
+	uint64_t v = 0;
+
+	if (seg_size == SEG_1T) {
+		v = SLBIE_B_1T;
+		ea_mask = ESID_MASK_1T;
+	} else {
+		ea_mask = ESID_MASK_256MB;
+	}
+
+	v |= ea & ea_mask;
+	isync();
+	asm volatile("slbie %0\n\t" : : "r" (v));
+	isync();
 }
 
 
@@ -248,11 +292,21 @@ mmu_guest_fault_seg(ea_t ea)
 	unsigned sr_index = SR_INDEX(ea);
 	unsigned slb_slot = SR_INDEX_TO_SLB_SLOT(sr_index);
 
+	BUG_ON(sr_index >= SR_COUNT, "invalid SR index, bad EA 0x%lx", ea);
+
 	asm volatile("slbmfee  %0,%1" : "=r" (esid) :
 		     "r" (slb_slot));
-	if (esid != 0) {
+	if ((esid & SLB_ESID_V) != 0) {
+		/*
+		 * Segment is already present...
+		 */
 		return ERR_UNSUPPORTED;
 	}
+
+	/*
+	 * mmu_guest_update sets up the GRM segment.
+	 */
+	BUG_ON(guest_is_mmu_off(), "SLB miss should only happen with guest MMU off");
 
 	esid = slb_make_esid(ea, SEG_256M, slb_slot);
 	/*
@@ -266,6 +320,29 @@ mmu_guest_fault_seg(ea_t ea)
 	isync();
 
 	return ERR_NONE;
+}
+
+
+void
+mmu_guest_update(bool mmu_turning_on)
+{
+	if (mmu_turning_on) {
+		slb_invalidate(LAYOUT_VM_START, SEG_1T);
+	} else {
+		int i;
+		uint64_t esid;
+		uint64_t vsid;
+
+		for (i = 0; i < SR_COUNT; i++) {
+			slb_invalidate(SR_INDEX_TO_EA(i), SEG_256M);
+		}
+
+		esid = slb_make_esid(LAYOUT_VM_START, SEG_1T, GRM_SLOT);
+		vsid = slb_make_vsid(GRM_VSID, SEG_1T, PAGE_16M);
+		asm volatile("slbmte %0, %1" ::
+			     "r"(vsid), "r"(esid) : "memory");
+		isync();
+	}
 }
 
 
@@ -606,7 +683,8 @@ mmu_map_vpn(vpn_t vpn,
 	}
 
 	BUG_ON(actual_size < base_size,
-	       "actual size cannot be less than base");
+	       "actual size 0x%x cannot be less than base 0x%x",
+               actual_size, base_size);
 	BUG_ON((ra & ~(actual_size - 1)) != ra,
 	       "RA 0x%x not aligned to 0x%x", ra, actual_size);
 
@@ -771,11 +849,12 @@ mmu_init(length_t ram_size)
 	 * Loaded at 0x00000000200XXXXX.
 	 * We run at 0x80000000200XXXXX.
 	 *
-	 * real-mode vectors at RA 0x0.
 	 * MMU-mode vectors at EA 0xc000000000004000.
 	 *
 	 * Need these mappings in order to successfully
 	 * take exceptions with MMU on (i.e. with AIL).
+	 *
+	 * (The rest gets faulted in by exc.c).
 	 */
 	mmu_map_range(((ea_t) htab) & PAGE_MASK_16M,
 		      ((ea_t) htab) + htab_size,

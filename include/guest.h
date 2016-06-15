@@ -37,7 +37,7 @@ typedef struct guest_t
   uint32_t srr1;
   uint32_t ibat[8];
   uint32_t dbat[8];
-  uint32_t sr[16];
+  uint32_t sr[SR_COUNT];
   uint32_t sprg[4];
   length_t ram_size;
   void     *ram;

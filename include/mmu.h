@@ -71,6 +71,7 @@ bool_t mmu_enabled(void);
 void mmu_map(ea_t ea, ra_t ra, prot_t pp, page_size_t actual);
 
 err_t mmu_guest_fault_seg(ea_t ea);
+void mmu_guest_update(bool mmu_turning_on);
 
 void
 mmu_map_range(ea_t ea_start,

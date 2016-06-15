@@ -263,6 +263,9 @@
 #define SID_SHIFT_256MB         28
 #define ESID_MASK_256MB         0xfffffffff0000000UL
 
+/* SLBIE bits */
+#define SLBIE_B_1T              (1UL << 25)
+
 /* Bits in the SLB ESID word */
 #define SLB_ESID_V              (0x0000000008000000) /* valid */
 
@@ -279,6 +282,8 @@
 
 /* 32-bit segment register definitions */
 #define SR_INDEX(ea)            (ea >> 28)
+#define SR_INDEX_TO_EA(index)   ((uint64_t) index << 28)
+#define SR_COUNT                16
 #define SR_T                    (1U << (31 - 0))
 #define SR_KP                   (1U << (31 - 1))
 #define SR_KS                   (1U << (31 - 2))

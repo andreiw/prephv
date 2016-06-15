@@ -30,6 +30,19 @@ guest_t *guest;
 
 #define R(x) (&frame->r0)[(x)]
 
+
+static void
+guest_update_msr(uint32_t new)
+{
+	bool was = guest_is_mmu_off();
+	guest->msr = new;
+
+	if (was != guest_is_mmu_off()) {
+		mmu_guest_update(!guest_is_mmu_off());
+	}
+}
+
+
 err_t
 guest_init(length_t ram_size)
 {
@@ -50,7 +63,7 @@ guest_init(length_t ram_size)
 //	guest->pvr = 0x000c0200; /* G4   - NOPE.  */
 	guest->msr = 0;
 	guest->ram_size = ram_size;
-	guest->ram = mem_memalign(MB(1), guest->ram_size);
+	guest->ram = mem_memalign(MB(16), guest->ram_size);
 
 	LOG("HV pointer to GRAM %p", guest->ram);
 	LOG("Guest RAM at RA 0x%lx", ptr_2_ra(guest->ram));
@@ -64,22 +77,31 @@ guest_init(length_t ram_size)
 		}
 	}
 
+	for (i = 0; i < ARRAY_LEN(guest->sr); i++) {
+		guest->sr[i] = (i << SR_VSID_SHIFT);
+	}
+
+	/*
+	 * The GRM mapping (uses 16M pages).
+	 */
+	mmu_guest_update(false);
+	mmu_map_range(LAYOUT_VM_START,
+		      LAYOUT_VM_START + guest->ram_size,
+		      ptr_2_ra(guest->ram),
+		      PP_RWRW,
+		      PAGE_16M);
+
 	/*
 	 * Our initial state isn't "real mode" per se. We
 	 * initialize the shadow MMU and have reasonable SRs,
 	 * but don't bother with guest HTAB.
 	 */
-
-	for (i = 0; i < ARRAY_LEN(guest->sr); i++) {
-		guest->sr[i] = (i << SR_VSID_SHIFT);
-	}
-
+	guest_update_msr(MSR_IR | MSR_DR);
 	mmu_map_range(LAYOUT_VM_START,
 		      LAYOUT_VM_START + guest->ram_size,
 		      ptr_2_ra(guest->ram),
 		      PP_RWRW,
 		      PAGE_4K);
-	guest->msr |= MSR_IR | MSR_DR;
 
 	return ERR_NONE;
 }
@@ -143,7 +165,8 @@ guest_exc_try(eframe_t *frame)
 			return ERR_NONE;
 		} else if ((*i & PPC_INST_MTMSR_MASK) == PPC_INST_MTMSR) {
 			int reg = MASK_OFF(*i, 25, 21);
-			guest->msr = R(reg);
+
+			guest_update_msr(R(reg));
 			frame->hsrr0 += 4;
 			return ERR_NONE;
 		} else if ((*i & PPC_INST_MTSPR_MASK) == PPC_INST_MTSPR) {
@@ -256,7 +279,7 @@ guest_exc_try(eframe_t *frame)
 			frame->hsrr0 += 4;
 			return ERR_NONE;
 		} else if ((*i & PPC_INST_RFI_MASK) == PPC_INST_RFI) {
-			guest->msr = guest->srr1;
+			guest_update_msr(guest->srr1);
 			frame->hsrr0 = guest->srr0;
 			return ERR_NONE;
 		}
