@@ -474,7 +474,7 @@ rom_call(eframe_t *frame)
 				WARN("mapping phys 0x%x (RAM 0x%lx RA 0x%lx) to 0x%x",
 				     phys, phys + guest->ram,
 				     ptr_2_ra(phys + guest->ram), virt);
-				mmu_map_range(virt, virt + size,
+				mmu_map_range(virt, ALIGN_UP(virt + size, PAGE_SIZE),
 					      ptr_2_ra(phys + guest->ram),
 					      PP_RWRW, PAGE_4K);
 				*(cia + 9) = 0; // success

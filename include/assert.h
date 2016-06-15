@@ -27,7 +27,7 @@
 #define BUG_ON(x, fmt, ...) do {                        \
 		if ((x)) {				\
 			mtmsrd(0, 1);			\
-			FATAL("BUG (%s): " fmt "\n", SIFY(x), ## __VA_ARGS__); \
+			FATAL("%s:%u BUG (%s): " fmt "\n", __FILE__, __LINE__, SIFY(x), ## __VA_ARGS__); \
 		}					\
 	} while(0);
 

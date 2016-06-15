@@ -63,6 +63,7 @@ typedef uint64_t vpn_t;
 #define GRM_SLOT      2
 #define SR_INDEX_TO_SLB_SLOT(x) (x + 3)
 
+
 static inline seg_size_t
 ea_2_seg_size(ea_t ea)
 {
@@ -804,6 +805,9 @@ mmu_map_range(ea_t ea_start,
 	ra_t ra = ra_start;
 	length_t size = (actual == PAGE_16M) ? PAGE_SIZE_16M : PAGE_SIZE;
 
+	BUG_ON((ea_end - ea_start) % size != 0, "range [0x%lx, 0x%lx) not 0x%x aligned",
+	       ea_start, ea_end, size);
+
 	for (; addr < ea_end; addr += size, ra += size) {
 		mmu_map(addr, ra, prot, actual);
 	}
@@ -857,12 +861,12 @@ mmu_init(length_t ram_size)
 	 * (The rest gets faulted in by exc.c).
 	 */
 	mmu_map_range(((ea_t) htab) & PAGE_MASK_16M,
-		      ((ea_t) htab) + htab_size,
+		      ALIGN_UP(((ea_t) htab) + htab_size, MB(16)),
 		      htab_ra & PAGE_MASK_16M,
 		      PP_RWXX,
 		      PAGE_16M);
 	mmu_map_range(((ea_t) &_start) & PAGE_MASK_16M,
-		      (ea_t) &_end,
+		      ALIGN_UP((ea_t) &_end, MB(16)),
 		      ptr_2_ra(&_start) & PAGE_MASK_16M,
 		      PP_RWXX,
 		      PAGE_16M);

@@ -53,6 +53,7 @@ guest_init(length_t ram_size)
 	}
 
 	BUG_ON(ram_size < MB(32), "too little RAM");
+	BUG_ON(ram_size % MB(16) != 0, "RAM size % 16MB != 0");
 	memset(guest, 0, sizeof(guest_t));
 
 //	guest->pvr = 0x00010001; /* 601  - YES!   */
