@@ -320,7 +320,7 @@ rom_call(eframe_t *frame)
 
 	if (!strcmp("finddevice", (char *) (uintptr_t) *cia)) {
 		int node;
-		
+
 		char *dev = (char *) (uintptr_t) *(cia + 3);
 		int *ihandle = (int *) (uintptr_t) (cia + 4);
 
@@ -414,6 +414,9 @@ rom_call(eframe_t *frame)
 				guest_disk_offset += len;
 				*outlen = len;
 			}
+		} else if (ih == 0xcccccccc) {
+			WARN("read disk:0");
+			memset(data, 0xff, *outlen);
 		} else {
 			*outlen = rom_stdin(data, len);
 		}
@@ -580,6 +583,9 @@ rom_call(eframe_t *frame)
 		} else if (!strcmp(path, "/fake-storage/disk:1")) {
 			*ih = 0xdddddddd;
 			guest_disk_offset = 0;
+		} else if (!strcmp(path, "/fake-storage/disk:0")) {
+			*ih = 0xcccccccc;
+			WARN("open disk:0");
 		} else {
 			WARN("unknown open path '%s'", path);
 			frame->r3 = -1;
@@ -595,6 +601,9 @@ rom_call(eframe_t *frame)
 			frame->r3 = 0;
 		} else if (ih == 0xdddddddd) {
 			guest_disk_offset = 0;
+			frame->r3 = 0;
+		} else if (ih == 0xcccccccc) {
+			WARN("disk:0 close");
 			frame->r3 = 0;
 		} else {
 			frame->r3 = -1;
@@ -614,6 +623,9 @@ rom_call(eframe_t *frame)
 		} else if (ih == 0xdddddddd) {
 			WARN("seek to 0x%lx", offset);
 			guest_disk_offset = offset;
+			frame->r3 = 0;
+		} else if (ih == 0xcccccccc) {
+			WARN("seek to 0x%lx", offset);
 			frame->r3 = 0;
 		} else {
 			frame->r3 = -1;
