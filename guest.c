@@ -56,15 +56,17 @@ guest_init(length_t ram_size)
 	BUG_ON(ram_size % MB(16) != 0, "RAM size % 16MB != 0");
 	memset(guest, 0, sizeof(guest_t));
 
-//	guest->pvr = 0x00010001; /* 601  - YES!   */
+	guest->pvr = 0x00010001; /* 601  - YES!   */
 //	guest->pvr = 0x00030001; /* 603  - YES!   */
-	guest->pvr = 0x00040103; /* 604  - YES!   */
+//	guest->pvr = 0x00040103; /* 604  - YES!   */
 //	guest->pvr = 0x00090204; /* 604e - YES!   */
 //	guest->pvr = 0x00080200; /* G3   - YES!!! */
 //	guest->pvr = 0x000c0200; /* G4   - NOPE.  */
 	guest->msr = 0;
 	guest->ram_size = ram_size;
 	guest->ram = mem_memalign(MB(16), guest->ram_size);
+	guest->magic_page = mem_memalign(4096, 4096);
+	memset(guest->magic_page, 0, 4096);
 
 	LOG("HV pointer to GRAM %p", guest->ram);
 	LOG("Guest RAM at RA 0x%lx", ptr_2_ra(guest->ram));
@@ -104,8 +106,17 @@ guest_init(length_t ram_size)
 		      PP_RWRW,
 		      PAGE_4K);
 
+	/* FIXME: work out how to do magic page prkvm style.
+	mmu_map_range(-4096,
+		      0,
+		      ptr_2_ra(guest->magic_page),
+		      PP_RWRW,
+		      PAGE_4K);*/
+
 	return ERR_NONE;
 }
+
+static uint32_t rtc0 = 0;
 
 err_t
 guest_exc_try(eframe_t *frame)
@@ -208,7 +219,7 @@ guest_exc_try(eframe_t *frame)
 			case SPRN_SPRG1:
 			case SPRN_SPRG2:
 			case SPRN_SPRG3: {
-				uint32_t *sprg = guest->sprg;
+				uint32_t *sprg = guest->magic_page->sprg;
 				sprg[spr - SPRN_SPRG0] = R(reg);
 				ERROR("SPRG%u = 0x%x (MMU off? %u)",
 				      spr - SPRN_SPRG0,
@@ -219,6 +230,9 @@ guest_exc_try(eframe_t *frame)
 				guest->sdr1 = R(reg);
 				ERROR("SDR1 = 0x%x (MMU off? %u)", R(reg),
 				      guest_is_mmu_off());
+				break;
+			case 1008:
+				guest->hid0 = R(reg);
 				break;
 			default:
 				FATAL("0x%x: unhandled MTSPR %u, r%u",
@@ -265,15 +279,27 @@ guest_exc_try(eframe_t *frame)
 			case SPRN_SPRG1:
 			case SPRN_SPRG2:
 			case SPRN_SPRG3: {
-				uint32_t *sprg = guest->sprg;
+				uint32_t *sprg = guest->magic_page->sprg;
 				R(reg) = sprg[spr - SPRN_SPRG0];
+				uint32_t *isn = (uint32_t*)frame->hsrr0;
+				// FIXME: use magic page rather than 0
+				*isn = 0xe8000000 | (*isn & 0x03e00000) | (( 0 + spr - SPRN_SPRG0) & 0x0000fffc);
 				break;
 			}
 			case SPRN_SDR1:
 				R(reg) = guest->sdr1;
 				break;
+			case 4:
+				R(reg) = rtc0++;
+				break;
+			case 5:
+				R(reg) = 0;
+				break;
+			case 1008:
+				R(reg) = guest->hid0;
+				break;
 			default:
-				FATAL("0x%x: unhandled MFSPR r%u, %u",
+				WARN("0x%x: unhandled MFSPR r%u, %u",
 				      frame->hsrr0, reg, spr);
 			}
 
@@ -285,7 +311,19 @@ guest_exc_try(eframe_t *frame)
 			return ERR_NONE;
 		}
 
-		ERROR("0x%x: unhandled insn 0x%x", frame->hsrr0, *i);
+		if ((*i >> 26) == 0x1f) {
+			int rA = MASK_OFF(*i, 15,11);
+			int rS = MASK_OFF(*i, 10,6);
+			int rC = MASK_OFF(*i, 31, 30);
+			uint32_t v = R(rS);
+			R(rA) = v ? __builtin_clz(v) : 32;
+			if (rC)
+				frame->cr = frame->cr & !0xf0000000;
+			frame->hsrr0 += 4;
+			return ERR_NONE;
+		}
+
+		ERROR("0x%x: unhandled insn 0x%x op %x", frame->hsrr0, *i, *i >> 26);
 	} else if (frame->vec == EXC_SC) {
 		mtmsrd(MSR_RI, 1);
 		err = rom_call(frame);
@@ -293,6 +331,6 @@ guest_exc_try(eframe_t *frame)
 		return err;
 	}
 
-	WARN("FIXME: inject exception into guest");
+	ERROR("FIXME: inject exception into guest");
 	return ERR_UNSUPPORTED;
 }

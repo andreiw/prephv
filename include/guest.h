@@ -28,6 +28,11 @@
 
 extern struct guest_t *guest;
 
+typedef struct guest_magic_page_t
+{
+  uint32_t sprg[4];
+} guest_magic_page_t;
+
 typedef struct guest_t
 {
   uint32_t sdr1;
@@ -38,11 +43,13 @@ typedef struct guest_t
   uint32_t ibat[8];
   uint32_t dbat[8];
   uint32_t sr[SR_COUNT];
-  uint32_t sprg[4];
+  uint32_t hid0;
   length_t ram_size;
   void     *ram;
   rom_t    rom;
+  guest_magic_page_t *magic_page;
 } guest_t;
+
 
 static inline bool_t
 guest_is_mmu_off(void)
