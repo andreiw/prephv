@@ -500,6 +500,15 @@ char *strsep(char **s, const char *ct)
 void *memset(void *s, int c, length_t count)
 {
 	char *xs = s;
+	uint32_t *xi = s;
+	uint32_t ci = c | c << 8 | c << 16 | c << 24;
+
+	while (count > 4) {
+	  *xi = ci;
+	  count -= 4;
+	  xi++;
+	  xs+=4;
+	}
 
 	while (count--)
 		*xs++ = c;
