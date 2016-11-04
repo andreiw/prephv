@@ -88,7 +88,7 @@ cpu_init(void *fdt)
 	 * We might need to call back into OPAL periodically.
 	 * On real HW this (might?) prevent a watchdog-related reboot.
 	 */
-	node = fdt_node_check_compatible(fdt, -1, "ibm,opal-v2");
+	node = fdt_node_check_compatible(fdt, -1, "ibm,opal-v3");
 	if (node >= 0) {
 		be32_data = fdt_getprop(fdt, node, "ibm,heartbeat-ms", NULL);
 		if (be32_data != NULL) {
