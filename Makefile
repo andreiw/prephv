@@ -19,7 +19,7 @@ FAT_IMAGE ?= ../image.fat # relative to skiboot
 ARCH_FLAGS = -msoft-float -mpowerpc64 -mcpu=power8 -mtune=power8 -mabi=elfv2 \
              -mlittle-endian -mno-strict-align -mno-multiple \
              -mno-pointers-to-nested-functions -mcmodel=large -fno-builtin \
-             -fno-stack-protector -I./ -Wall -Werror
+             -fno-stack-protector -I./ -Wall -Werror -g
 
 CC_FLAGS = -I ./include -I ./include/fat
 
